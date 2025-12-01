@@ -733,36 +733,109 @@ public class ConsoleUI {
     }
 
     private void refundTicket() {
-        System.out.println("\n----- 退票 -----");
-        viewMyOrders();
+        clearScreen();
+        printTitle("退票");
         
-        System.out.print("请输入要退票的订单ID: ");
-        String orderId = scanner.nextLine().trim();
-        
-        Order order = bookingService.getOrder(orderId);
-        if (order == null) {
-            System.out.println("订单不存在");
+        List<Order> userOrders = currentUser.getOrders();
+        if (userOrders.isEmpty()) {
+            printWarning("您没有可退票的订单");
+            pressEnterToContinue();
             return;
         }
         
-        if (!order.getOrderId().equals(orderId)) {
-            System.out.println("订单不属于当前用户");
+        // 显示可退票的订单
+        printlnColored(CYAN, "\n您的订单列表：");
+        printSeparator('═', 70);
+        
+        java.util.Set<String> displayedOrderIds = new java.util.HashSet<>();
+        int displayIndex = 1;
+        java.util.Map<String, Order> orderMap = new java.util.HashMap<>();
+        
+        for (Order order : userOrders) {
+            if (!displayedOrderIds.contains(order.getOrderId()) && 
+                (order.getStatus() == Order.OrderStatus.PAID || order.getStatus() == Order.OrderStatus.PENDING)) {
+                displayedOrderIds.add(order.getOrderId());
+                
+                printColored(GREEN, String.format("%d. ", displayIndex));
+                printColored(WHITE, order.getOrderId());
+                printColored(CYAN, " - ");
+                printlnColored(WHITE, order.getShow().getMovie().getTitle());
+                
+                printColored(CYAN, "   座位: ");
+                StringBuilder seatInfo = new StringBuilder();
+                for (Seat seat : order.getSeats()) {
+                    if (seatInfo.length() > 0) seatInfo.append(", ");
+                    seatInfo.append(seat.getSeatId());
+                }
+                printlnColored(WHITE, seatInfo.toString());
+                
+                printColored(CYAN, "   状态: ");
+                switch (order.getStatus()) {
+                    case PENDING:
+                        printColored(YELLOW + BOLD, "待支付");
+                        break;
+                    case PAID:
+                        printColored(GREEN + BOLD, "已支付");
+                        break;
+                }
+                System.out.println();
+                
+                printColored(CYAN, "   金额: ");
+                printColored(YELLOW + BOLD, String.format("￥%.2f", order.getTotalAmount()));
+                System.out.println("\n");
+                
+                orderMap.put(String.valueOf(displayIndex), order);
+                displayIndex++;
+            }
+        }
+        
+        printSeparator('═', 70);
+        printColored(YELLOW, "请输入要退票的订单编号 (1-" + (displayIndex-1) + ") 或输入0返回: ");
+        String choice = scanner.nextLine().trim();
+        
+        if ("0".equals(choice)) {
             return;
         }
         
-        System.out.println("订单信息: " + order.toString());
-        System.out.print("确认退票？(Y/N): ");
+        Order selectedOrder = orderMap.get(choice);
+        if (selectedOrder == null) {
+            printError("无效的订单编号");
+            pressEnterToContinue();
+            return;
+        }
+        
+        // 确认退票
+        printSeparator('-', 50);
+        printColored(CYAN, "订单详情：\n");
+        printColored(CYAN, "订单号: ");
+        printlnColored(WHITE, selectedOrder.getOrderId());
+        printColored(CYAN, "电影: ");
+        printlnColored(WHITE, selectedOrder.getShow().getMovie().getTitle());
+        printColored(CYAN, "座位: ");
+        StringBuilder seatInfoDetail = new StringBuilder();
+        for (Seat seat : selectedOrder.getSeats()) {
+            if (seatInfoDetail.length() > 0) seatInfoDetail.append(", ");
+            seatInfoDetail.append(seat.getSeatId());
+        }
+        printlnColored(WHITE, seatInfoDetail.toString());
+        printColored(CYAN, "金额: ");
+        printlnColored(YELLOW + BOLD, String.format("￥%.2f", selectedOrder.getTotalAmount()));
+        
+        printColored(YELLOW, "\n确认退票？(Y/N): ");
         String confirm = scanner.nextLine().trim();
         
         if (confirm.equalsIgnoreCase("Y")) {
             try {
-                bookingService.cancelOrder(order);
-                System.out.println("退票成功");
+                bookingService.cancelOrder(selectedOrder);
+                printSuccess("退票成功！座位已释放，退款将在3-5个工作日内到账");
+                pressEnterToContinue();
             } catch (InvalidBookingException e) {
-                System.out.println("退票失败: " + e.getMessage());
+                printError("退票失败: " + e.getMessage());
+                pressEnterToContinue();
             }
         } else {
-            System.out.println("取消退票");
+            printInfo("取消退票");
+            pressEnterToContinue();
         }
     }
 
