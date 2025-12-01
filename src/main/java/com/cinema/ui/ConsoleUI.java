@@ -489,11 +489,13 @@ public class ConsoleUI {
     }
 
     private void searchShows() {
-        System.out.println("\n----- 查询场次 -----");
-        System.out.print("请输入电影名称 (直接回车显示所有): ");
+        clearScreen();
+        printTitle("查询场次");
+        
+        printColored(CYAN, "请输入电影名称 (直接回车显示所有): ");
         String movieTitle = scanner.nextLine().trim();
         
-        System.out.print("请输入日期 (YYYY-MM-DD，直接回车显示所有): ");
+        printColored(CYAN, "请输入日期 (YYYY-MM-DD，直接回车显示所有): ");
         String dateStr = scanner.nextLine().trim();
         
         LocalDate date = null;
@@ -501,28 +503,58 @@ public class ConsoleUI {
             try {
                 date = LocalDate.parse(dateStr);
             } catch (Exception e) {
-                System.out.println("日期格式错误，显示所有场次");
+                printWarning("日期格式错误，显示所有场次");
             }
         }
         
         List<Show> shows = cinemaManager.searchShows(movieTitle, date);
         
         if (shows.isEmpty()) {
-            System.out.println("未找到符合条件的场次");
+            printWarning("未找到符合条件的场次");
+            pressEnterToContinue();
             return;
         }
         
-        System.out.println("\n找到 " + shows.size() + " 个场次:");
+        printSeparator('═', 70);
+        printColored(GREEN + BOLD, "找到 " + shows.size() + " 个场次:\n");
+        
         for (int i = 0; i < shows.size(); i++) {
             Show show = shows.get(i);
-            System.out.println((i + 1) + ". " + show.getMovie().getTitle());
-            System.out.println("   场次ID: " + show.getId());
-            System.out.println("   放映厅: " + show.getScreeningRoom().getName());
-            System.out.println("   开始时间: " + show.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
-            System.out.println("   基础票价: ￥" + show.getBasePrice());
-            System.out.println("   可用座位: " + show.getAvailableSeatsCount() + "/" + show.getTotalSeats());
+            
+            printSeparator('-', 50);
+            printColored(GREEN + BOLD, String.format("场次 %d\n", i + 1));
+            
+            printColored(CYAN, "电影名称: ");
+            printlnColored(WHITE, show.getMovie().getTitle());
+            
+            printColored(CYAN, "场次ID: ");
+            printlnColored(WHITE, show.getId());
+            
+            printColored(CYAN, "放映厅: ");
+            printlnColored(WHITE, show.getScreeningRoom().getName());
+            
+            printColored(CYAN, "开始时间: ");
+            printlnColored(WHITE, show.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+            
+            printColored(CYAN, "基础票价: ");
+            printColored(YELLOW + BOLD, "￥" + show.getBasePrice());
             System.out.println();
+            
+            printColored(CYAN, "座位情况: ");
+            int available = show.getAvailableSeatsCount();
+            int total = show.getTotalSeats();
+            if (available == 0) {
+                printColored(RED, "已满座");
+            } else if (available < total * 0.2) {
+                printColored(YELLOW, available + "/" + total + " (座位紧张)");
+            } else {
+                printColored(GREEN, available + "/" + total + " (余票充足)");
+            }
+            System.out.println("\n");
         }
+        
+        printSeparator('═', 70);
+        pressEnterToContinue();
     }
 
     private void purchaseTicket() {
