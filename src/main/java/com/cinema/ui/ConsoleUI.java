@@ -1164,7 +1164,8 @@ public class ConsoleUI {
     }
 
     private void viewStatistics() {
-        System.out.println("\n----- 统计信息 -----");
+        clearScreen();
+        printTitle("统计信息");
         
         List<Movie> movies = cinemaManager.getAllMovies();
         List<ScreeningRoom> rooms = cinemaManager.getAllScreeningRooms();
@@ -1172,23 +1173,84 @@ public class ConsoleUI {
         List<User> users = cinemaManager.getAllUsers();
         List<Order> orders = bookingService.getAllOrders();
         
-        System.out.println("电影总数: " + movies.size());
-        System.out.println("放映厅总数: " + rooms.size());
-        System.out.println("场次总数: " + shows.size());
-        System.out.println("用户总数: " + users.size());
-        System.out.println("订单总数: " + orders.size());
+        printSeparator('═', 60);
+        printColored(GREEN + BOLD, "系统资源统计\n");
+        
+        printColored(CYAN, "电影总数: ");
+        printlnColored(WHITE, String.valueOf(movies.size()));
+        
+        printColored(CYAN, "放映厅总数: ");
+        printlnColored(WHITE, String.valueOf(rooms.size()));
+        
+        printColored(CYAN, "场次总数: ");
+        printlnColored(WHITE, String.valueOf(shows.size()));
+        
+        printColored(CYAN, "注册用户: ");
+        printlnColored(WHITE, String.valueOf(users.size()));
+        
+        printColored(CYAN, "订单总数: ");
+        printlnColored(WHITE, String.valueOf(orders.size()));
+        
+        printSeparator('-', 60);
+        printColored(GREEN + BOLD, "业务统计\n");
         
         int paidOrders = 0;
+        int pendingOrders = 0;
+        int cancelledOrders = 0;
         double totalRevenue = 0.0;
         
         for (Order order : orders) {
-            if (order.getStatus() == Order.OrderStatus.PAID) {
-                paidOrders++;
-                totalRevenue += order.getTotalAmount();
+            switch (order.getStatus()) {
+                case PAID:
+                    paidOrders++;
+                    totalRevenue += order.getTotalAmount();
+                    break;
+                case PENDING:
+                    pendingOrders++;
+                    break;
+                case CANCELLED:
+                    cancelledOrders++;
+                    break;
+                case REFUNDED:
+                    cancelledOrders++;
+                    break;
             }
         }
         
-        System.out.println("已支付订单: " + paidOrders);
-        System.out.println("总收入: ￥" + String.format("%.2f", totalRevenue));
+        printColored(CYAN, "已支付订单: ");
+        printlnColored(GREEN, String.valueOf(paidOrders));
+        
+        printColored(CYAN, "待支付订单: ");
+        printlnColored(YELLOW, String.valueOf(pendingOrders));
+        
+        printColored(CYAN, "已取消订单: ");
+        printlnColored(RED, String.valueOf(cancelledOrders));
+        
+        printSeparator('-', 60);
+        printColored(GREEN + BOLD, "收入统计\n");
+        
+        printColored(CYAN, "总收入: ");
+        printColored(YELLOW + BOLD, "￥" + String.format("%.2f", totalRevenue));
+        System.out.println();
+        
+        if (paidOrders > 0) {
+            double avgOrderValue = totalRevenue / paidOrders;
+            printColored(CYAN, "平均订单金额: ");
+            printlnColored(WHITE, "￥" + String.format("%.2f", avgOrderValue));
+        }
+        
+        double orderRate = orders.size() > 0 ? (double) paidOrders / orders.size() * 100 : 0;
+        printColored(CYAN, "订单完成率: ");
+        if (orderRate >= 70) {
+            printColored(GREEN + BOLD, String.format("%.1f%%", orderRate));
+        } else if (orderRate >= 50) {
+            printColored(YELLOW, String.format("%.1f%%", orderRate));
+        } else {
+            printColored(RED, String.format("%.1f%%", orderRate));
+        }
+        System.out.println();
+        
+        printSeparator('═', 60);
+        pressEnterToContinue();
     }
 }
