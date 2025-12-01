@@ -3,6 +3,7 @@ package com.cinema.service;
 import com.cinema.model.*;
 import com.cinema.strategy.PricingStrategy;
 import com.cinema.storage.SimpleDataStorage;
+import com.cinema.exception.*;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,16 +37,29 @@ public class BookingService {
         return instance;
     }
 
-    public Order createOrder(User user, Show show, List<String> seatIds) {
+    public Order createOrder(User user, Show show, List<String> seatIds) throws InvalidBookingException, SeatNotAvailableException {
         if (show == null) {
-            throw new IllegalArgumentException("Show cannot be null");
+            throw new InvalidBookingException("场次不能为空");
+        }
+
+        if (user == null) {
+            throw new InvalidBookingException("用户不能为空");
+        }
+
+        if (seatIds == null || seatIds.isEmpty()) {
+            throw new InvalidBookingException("座位列表不能为空");
         }
 
         List<Seat> selectedSeats = new java.util.ArrayList<>();
+        StringBuilder bookingDetails = new StringBuilder();
+        bookingDetails.append("场次: ").append(show.getMovie().getTitle());
+        bookingDetails.append(", 座位: ");
+
         for (String seatId : seatIds) {
             String[] parts = seatId.split("-");
             if (parts.length != 2) {
-                throw new IllegalArgumentException("Invalid seat ID format: " + seatId);
+                throw new InvalidBookingException("座位ID格式无效: " + seatId, 
+                    "期望格式: 行-列 (例如: 1-1)");
             }
 
             try {
@@ -54,21 +68,23 @@ public class BookingService {
                 Seat seat = show.getSeat(row, col);
                 
                 if (seat == null) {
-                    throw new IllegalArgumentException("Seat not found: " + seatId);
+                    throw new SeatNotAvailableException(seatId, "座位不存在");
                 }
                 
                 if (!seat.isAvailable()) {
-                    throw new IllegalStateException("Seat not available: " + seatId);
+                    throw new SeatNotAvailableException(seatId, "座位已被预订");
                 }
                 
                 selectedSeats.add(seat);
+                bookingDetails.append(seatId).append(" ");
             } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Invalid seat ID format: " + seatId);
+                throw new InvalidBookingException("座位ID格式无效: " + seatId, 
+                    "行和列必须是数字", e);
             }
         }
 
         if (selectedSeats.isEmpty()) {
-            throw new IllegalArgumentException("No valid seats selected");
+            throw new InvalidBookingException("没有选择有效的座位", bookingDetails.toString());
         }
 
         // Lock seats temporarily
@@ -92,21 +108,23 @@ public class BookingService {
         return order;
     }
 
-    public boolean processPayment(Order order) {
+    public void processPayment(Order order) throws PaymentFailedException {
         if (order == null) {
-            throw new IllegalArgumentException("Order cannot be null");
+            throw new PaymentFailedException("", 0.0, "未知", "订单不能为空");
         }
 
         if (!orders.containsKey(order.getOrderId())) {
-            throw new IllegalArgumentException("Order not found: " + order.getOrderId());
+            throw new PaymentFailedException(order.getOrderId(), order.getTotalAmount(), "未知", "订单不存在");
         }
 
         if (order.getStatus() != Order.OrderStatus.PENDING) {
-            return false;
+            throw new PaymentFailedException(order.getOrderId(), order.getTotalAmount(), "未知", 
+                "订单状态不是待支付状态，无法支付");
         }
 
         // Process payment logic would go here
         boolean paymentSuccessful = true; // Simulate successful payment
+        String paymentMethod = "支付宝"; // Simulate payment method
 
         if (paymentSuccessful) {
             order.processPayment();
@@ -117,23 +135,23 @@ public class BookingService {
             }
             
             saveOrder(order);
-            return true;
         } else {
             // Unlock seats if payment fails
             for (Seat seat : order.getSeats()) {
                 seat.unlock();
             }
-            return false;
+            throw new PaymentFailedException(order.getOrderId(), order.getTotalAmount(), paymentMethod, 
+                "支付处理失败，请检查支付信息");
         }
     }
 
-    public boolean cancelOrder(Order order) {
+    public void cancelOrder(Order order) throws InvalidBookingException {
         if (order == null) {
-            throw new IllegalArgumentException("Order cannot be null");
+            throw new InvalidBookingException("订单不能为空");
         }
 
         if (!orders.containsKey(order.getOrderId())) {
-            throw new IllegalArgumentException("Order not found: " + order.getOrderId());
+            throw new InvalidBookingException("订单不存在", "订单号: " + order.getOrderId());
         }
 
         if (order.getStatus() == Order.OrderStatus.PAID) {
@@ -147,9 +165,9 @@ public class BookingService {
                     seat.unlock();
                 }
                 saveOrder(order);
-                return true;
+            } else {
+                throw new InvalidBookingException("退款失败", "订单号: " + order.getOrderId());
             }
-            return false;
         } else if (order.getStatus() == Order.OrderStatus.PENDING) {
             order.cancel();
             // Unlock seats
@@ -157,10 +175,12 @@ public class BookingService {
                 seat.unlock();
             }
             saveOrder(order);
-            return true;
+        } else if (order.getStatus() == Order.OrderStatus.CANCELLED) {
+            throw new InvalidBookingException("订单已经取消", "订单号: " + order.getOrderId());
+        } else {
+            throw new InvalidBookingException("无法取消此状态的订单", 
+                "订单号: " + order.getOrderId() + ", 状态: " + order.getStatus());
         }
-
-        return false;
     }
 
     public Order getOrder(String orderId) {

@@ -94,10 +94,14 @@ public class SimpleTest {
 
         // Test creating order
         List<String> seatIds = List.of("1-1", "1-2");
-        Order order = bookingService.createOrder(testUser, testShow, seatIds);
-
-        if (order == null || order.getStatus() != Order.OrderStatus.PENDING) {
-            throw new RuntimeException("Order creation test failed");
+        Order order;
+        try {
+            order = bookingService.createOrder(testUser, testShow, seatIds);
+            if (order == null || order.getStatus() != Order.OrderStatus.PENDING) {
+                throw new RuntimeException("Order creation test failed");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Order creation test failed: " + e.getMessage());
         }
 
         if (order.getSeatCount() != 2) {
@@ -105,9 +109,13 @@ public class SimpleTest {
         }
 
         // Test payment
-        boolean paymentResult = bookingService.processPayment(order);
-        if (!paymentResult || order.getStatus() != Order.OrderStatus.PAID) {
-            throw new RuntimeException("Payment processing test failed");
+        try {
+            bookingService.processPayment(order);
+            if (order.getStatus() != Order.OrderStatus.PAID) {
+                throw new RuntimeException("Payment processing test failed");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Payment processing test failed: " + e.getMessage());
         }
 
         // Check seat is sold

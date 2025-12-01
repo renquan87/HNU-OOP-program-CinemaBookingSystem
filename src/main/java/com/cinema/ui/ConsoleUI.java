@@ -4,6 +4,7 @@ import com.cinema.model.*;
 import com.cinema.service.*;
 import com.cinema.strategy.StandardPricing;
 import com.cinema.strategy.PremiumPricing;
+import com.cinema.exception.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -17,6 +18,27 @@ public class ConsoleUI {
     private final Scanner scanner;
     private User currentUser;
     private NewMethods newMethods;
+    
+    // ANSI颜色代码（用于美化控制台输出）
+    private static final String RESET = "\u001B[0m";
+    private static final String RED = "\u001B[31m";
+    private static final String GREEN = "\u001B[32m";
+    private static final String YELLOW = "\u001B[33m";
+    private static final String BLUE = "\u001B[34m";
+    private static final String PURPLE = "\u001B[35m";
+    private static final String CYAN = "\u001B[36m";
+    private static final String WHITE = "\u001B[37m";
+    private static final String BOLD = "\u001B[1m";
+    
+    // 界面装饰符号
+    private static final String LINE = "═";
+    private static final String CORNER_TL = "╔";
+    private static final String CORNER_TR = "╗";
+    private static final String CORNER_BL = "╚";
+    private static final String CORNER_BR = "╝";
+    private static final String VERTICAL = "║";
+    private static final String HORIZONTAL = "─";
+    private static final String CROSS = "╬";
 
     public ConsoleUI() {
         this.cinemaManager = CinemaManager.getInstance();
@@ -25,11 +47,114 @@ public class ConsoleUI {
         this.currentUser = null;
         this.newMethods = null;
     }
+    
+    // ========== 界面美化工具方法 ==========
+    
+    /**
+     * 清屏
+     */
+    private void clearScreen() {
+        try {
+            if (System.getProperty("os.name").contains("Windows")) {
+                new ProcessBuilder("cmd", "/c", "cls").inheritIO().start().waitFor();
+            } else {
+                System.out.print("\033[H\033[2J");
+                System.out.flush();
+            }
+        } catch (Exception e) {
+            // 打印空行来模拟清屏
+            for (int i = 0; i < 50; i++) {
+                System.out.println();
+            }
+        }
+    }
+    
+    /**
+     * 打印带颜色的文本
+     */
+    private void printColored(String color, String text) {
+        System.out.print(color + text + RESET);
+    }
+    
+    /**
+     * 打印带颜色的文本并换行
+     */
+    private void printlnColored(String color, String text) {
+        System.out.println(color + text + RESET);
+    }
+    
+    /**
+     * 打印标题框
+     */
+    private void printTitle(String title) {
+        int width = Math.max(title.length() + 10, 60);
+        String border = LINE.repeat(width);
+        
+        printColored(CYAN, CORNER_TL + border + CORNER_TR + "\n");
+        printColored(CYAN, VERTICAL);
+        printColored(YELLOW + BOLD, " ".repeat((width - title.length()) / 2) + title);
+        printColored(CYAN, VERTICAL + "\n");
+        printColored(CYAN, CORNER_BL + border + CORNER_BR + "\n");
+    }
+    
+    /**
+     * 打印分隔线
+     */
+    private void printSeparator(char character, int length) {
+        printlnColored(CYAN, String.valueOf(character).repeat(length));
+    }
+    
+    /**
+     * 打印菜单项
+     */
+    private void printMenuItem(int number, String description) {
+        printColored(GREEN, "  " + number + ". ");
+        printlnColored(WHITE, description);
+    }
+    
+    /**
+     * 打印成功消息
+     */
+    private void printSuccess(String message) {
+        printColored(GREEN, "✓ ");
+        printlnColored(GREEN + BOLD, message);
+    }
+    
+    /**
+     * 打印错误消息
+     */
+    private void printError(String message) {
+        printColored(RED, "✗ ");
+        printlnColored(RED + BOLD, message);
+    }
+    
+    /**
+     * 打印警告消息
+     */
+    private void printWarning(String message) {
+        printColored(YELLOW, "⚠ ");
+        printlnColored(YELLOW + BOLD, message);
+    }
+    
+    /**
+     * 打印信息消息
+     */
+    private void printInfo(String message) {
+        printColored(BLUE, "ℹ ");
+        printlnColored(BLUE, message);
+    }
+    
+    /**
+     * 等待用户按回车继续
+     */
+    private void pressEnterToContinue() {
+        printColored(YELLOW, "\n按回车键继续...");
+        scanner.nextLine();
+    }
 
     public void start() {
-        System.out.println("=====================================");
-        System.out.println("     欢迎使用电影院购票系统");
-        System.out.println("=====================================");
+        clearScreen();
+        printTitle("欢迎使用电影院购票系统");
         
         login();
         
@@ -42,22 +167,28 @@ public class ConsoleUI {
             }
         }
         
-        System.out.println("感谢使用电影院购票系统，再见！");
+        clearScreen();
+        printTitle("感谢使用电影院购票系统");
+        printColored(YELLOW, "再见！\n");
     }
 
     private void login() {
         while (true) {
-            System.out.println("\n===== 用户登录系统 =====");
-            System.out.println("1. 用户登录");
-            System.out.println("2. 用户注册");
-            System.out.println("0. 退出系统");
-            System.out.print("请选择操作: ");
+            clearScreen();
+            printTitle("用户登录系统");
+            printlnColored(CYAN, "\n请选择操作：\n");
             
+            printMenuItem(1, "用户登录");
+            printMenuItem(2, "用户注册");
+            printMenuItem(0, "退出系统");
+            
+            printColored(YELLOW, "\n请选择操作 (0-2): ");
             String choice = scanner.nextLine().trim();
             
             switch (choice) {
                 case "1":
                     if (performLogin()) {
+                        printSuccess("登录成功！");
                         return;
                     }
                     break;
@@ -65,37 +196,41 @@ public class ConsoleUI {
                     performRegister();
                     break;
                 case "0":
-                    System.out.println("感谢使用电影院购票系统，再见！");
-                    System.exit(0);
-                    break;
+                    return;
                 default:
-                    System.out.println("无效选择，请重试");
+                    printError("无效选择，请输入0-2之间的数字");
+                    pressEnterToContinue();
             }
         }
     }
     
     private boolean performLogin() {
-        System.out.println("\n----- 用户登录 -----");
-        System.out.print("请输入用户ID: ");
+        clearScreen();
+        printTitle("用户登录");
+        
+        printColored(CYAN, "请输入用户ID: ");
         String userId = scanner.nextLine().trim();
         
         if (userId.isEmpty()) {
-            System.out.println("用户ID不能为空");
+            printError("用户ID不能为空");
+            pressEnterToContinue();
             return false;
         }
         
         User user = cinemaManager.getUser(userId);
         if (user != null) {
             currentUser = user;
-            System.out.println("登录成功！欢迎，" + currentUser.getName());
+            printSuccess("登录成功！欢迎，" + currentUser.getName());
             if (currentUser.isAdmin()) {
-                System.out.println("当前角色: 管理员");
+                printInfo("当前角色: 管理员");
             } else {
-                System.out.println("当前角色: 普通用户");
+                printInfo("当前角色: 普通用户");
             }
+            pressEnterToContinue();
             return true;
         } else {
-            System.out.println("用户不存在，请先注册");
+            printError("用户不存在，请先注册");
+            pressEnterToContinue();
             return false;
         }
     }
@@ -288,27 +423,58 @@ public class ConsoleUI {
     }
 
     private void browseMovies() {
-        System.out.println("\n----- 电影列表 -----");
+        clearScreen();
+        printTitle("电影列表");
+        
         List<Movie> movies = cinemaManager.getAllMovies();
         
         if (movies.isEmpty()) {
-            System.out.println("暂无电影信息");
+            printWarning("暂无电影信息");
+            pressEnterToContinue();
             return;
         }
         
         for (int i = 0; i < movies.size(); i++) {
             Movie movie = movies.get(i);
-            System.out.println((i + 1) + ". " + movie.getTitle());
-            System.out.println("   ID: " + movie.getId());
-            System.out.println("   导演: " + movie.getDirector());
-            System.out.println("   主演: " + String.join(", ", movie.getActors()));
-            System.out.println("   时长: " + movie.getDuration() + "分钟");
-            System.out.println("   评分: " + movie.getRating());
-            System.out.println("   类型: " + movie.getGenre());
-            System.out.println("   上映日期: " + movie.getReleaseTime());
-            System.out.println("   简介: " + movie.getDescription());
+            
+            printSeparator('═', 60);
+            printColored(GREEN + BOLD, String.format("%d. %s\n", i + 1, movie.getTitle()));
+            
+            printColored(CYAN, "   电影ID: ");
+            printlnColored(WHITE, movie.getId());
+            
+            printColored(CYAN, "   导演: ");
+            printlnColored(WHITE, movie.getDirector());
+            
+            printColored(CYAN, "   主演: ");
+            printlnColored(WHITE, String.join(", ", movie.getActors()));
+            
+            printColored(CYAN, "   时长: ");
+            printlnColored(WHITE, movie.getDuration() + "分钟");
+            
+            printColored(CYAN, "   评分: ");
+            if (movie.getRating() >= 8.0) {
+                printColored(GREEN + BOLD, String.format("%.1f", movie.getRating()));
+            } else if (movie.getRating() >= 6.0) {
+                printColored(YELLOW, String.format("%.1f", movie.getRating()));
+            } else {
+                printColored(RED, String.format("%.1f", movie.getRating()));
+            }
+            System.out.println();
+            
+            printColored(CYAN, "   类型: ");
+            printlnColored(WHITE, movie.getGenre().getDescription());
+            
+            printColored(CYAN, "   上映日期: ");
+            printlnColored(WHITE, movie.getReleaseTime().toString());
+            
+            printColored(CYAN, "   简介: ");
+            printlnColored(WHITE, movie.getDescription());
             System.out.println();
         }
+        
+        printSeparator('═', 60);
+        pressEnterToContinue();
     }
 
     private void searchShows() {
@@ -394,58 +560,102 @@ public class ConsoleUI {
             String confirm = scanner.nextLine().trim();
             
             if (confirm.equalsIgnoreCase("Y")) {
-                if (bookingService.processPayment(order)) {
-                    System.out.println("支付成功！订单已完成。");
-                } else {
-                    System.out.println("支付失败，订单已取消。");
+                try {
+                    bookingService.processPayment(order);
+                    printSuccess("支付成功！订单已完成。");
+                } catch (PaymentFailedException e) {
+                    printError("支付失败: " + e.getMessage());
+                    printWarning("订单已取消，座位已释放");
                 }
             } else {
-                bookingService.cancelOrder(order);
-                System.out.println("订单已取消。");
+                try {
+                    bookingService.cancelOrder(order);
+                    printInfo("订单已取消");
+                } catch (InvalidBookingException e) {
+                    printError("取消订单失败: " + e.getMessage());
+                }
             }
             
+        } catch (SeatNotAvailableException e) {
+            printError("座位预订失败: " + e.getMessage());
+            printWarning("原因: " + e.getReason());
+            printInfo("请选择其他座位");
+        } catch (InvalidBookingException e) {
+            printError("预订失败: " + e.getMessage());
+            if (!e.getBookingDetails().isEmpty()) {
+                printInfo("详情: " + e.getBookingDetails());
+            }
         } catch (Exception e) {
-            System.out.println("购票失败: " + e.getMessage());
+            printError("购票失败: " + e.getMessage());
         }
+        
+        pressEnterToContinue();
     }
 
     private void displaySeatMap(Show show) {
-        System.out.println("\n----- 座位图 -----");
-        System.out.println("图例: [O] 可用  [X] 已售  [L] 锁定");
+        printTitle("座位选择 - " + show.getMovie().getTitle());
+        
+        // 显示图例
+        printlnColored(CYAN, "\n图例：");
+        printColored(GREEN, "  [O] 可用座位  ");
+        printColored(YELLOW, "[L] 已锁定  ");
+        printlnColored(RED, "[X] 已售出");
         
         Seat[][] seats = show.getScreeningRoom().getSeatLayout();
         
-        System.out.print("   ");
+        // 打印列号
+        printColored(CYAN, "\n     ");
         for (int col = 1; col <= seats[0].length; col++) {
-            System.out.printf("%2d ", col);
+            printColored(CYAN, String.format("%2d ", col));
         }
         System.out.println();
         
+        // 打印座位
         for (int row = 0; row < seats.length; row++) {
-            System.out.printf("%2d ", row + 1);
+            printColored(CYAN, String.format("  %2d ", row + 1));
+            
             for (int col = 0; col < seats[row].length; col++) {
                 Seat showSeat = show.getSeat(row + 1, col + 1);
                 if (showSeat.isAvailable()) {
-                    System.out.print("[O] ");
+                    if (showSeat instanceof VIPSeat) {
+                        printColored(PURPLE + BOLD, "[V] ");
+                    } else {
+                        printColored(GREEN, "[O] ");
+                    }
                 } else if (showSeat.isLocked()) {
-                    System.out.print("[L] ");
+                    printColored(YELLOW, "[L] ");
                 } else {
-                    System.out.print("[X] ");
+                    printColored(RED, "[X] ");
                 }
             }
             System.out.println();
         }
         
-        System.out.println("\n可用座位:");
+        // 显示屏幕
+        printSeparator('═', seats[0].length * 3 + 5);
+        printlnColored(CYAN + BOLD, "           银幕");
+        
+        // 显示可用座位及价格
+        printSeparator('-', 50);
+        printlnColored(CYAN, "\n可用座位及价格：");
+        
         List<Seat> availableSeats = show.getAvailableSeats();
-        for (Seat seat : availableSeats) {
-            double price = bookingService.calculateSeatPrice(show, seat);
-            System.out.printf("座位 %s: ￥%.2f", seat.getSeatId(), price);
-            if (seat instanceof VIPSeat) {
-                System.out.print(" (VIP)");
+        if (availableSeats.isEmpty()) {
+            printError("暂无可选座位");
+        } else {
+            for (Seat seat : availableSeats) {
+                double price = bookingService.calculateSeatPrice(show, seat);
+                printColored(GREEN, "  座位 " + seat.getSeatId() + ": ");
+                printColored(YELLOW + BOLD, String.format("￥%.2f", price));
+                if (seat instanceof VIPSeat) {
+                    printColored(PURPLE + BOLD, " (VIP座位)");
+                }
+                System.out.println();
             }
-            System.out.println();
         }
+        
+        printSeparator('-', 50);
+        printInfo("请输入座位位置（格式：行-列，例如：1-1），输入'完成'结束选择");
     }
 
     private void viewMyOrders() {
@@ -487,10 +697,11 @@ public class ConsoleUI {
         String confirm = scanner.nextLine().trim();
         
         if (confirm.equalsIgnoreCase("Y")) {
-            if (bookingService.cancelOrder(order)) {
+            try {
+                bookingService.cancelOrder(order);
                 System.out.println("退票成功");
-            } else {
-                System.out.println("退票失败");
+            } catch (InvalidBookingException e) {
+                System.out.println("退票失败: " + e.getMessage());
             }
         } else {
             System.out.println("取消退票");
