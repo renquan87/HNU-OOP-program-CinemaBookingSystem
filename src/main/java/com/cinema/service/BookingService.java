@@ -226,7 +226,10 @@ public class BookingService {
                 User user = cinemaManager.getUser(order.getUser().getId());
                 if (user != null) {
                     order.setUser(user);
-                    user.addOrder(order);
+                    // 检查用户是否已经有这个订单，避免重复添加
+                    if (!user.getOrders().contains(order)) {
+                        user.addOrder(order);
+                    }
                 }
             }
         }

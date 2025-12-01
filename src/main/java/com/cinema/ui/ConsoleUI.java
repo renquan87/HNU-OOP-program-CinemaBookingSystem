@@ -659,19 +659,77 @@ public class ConsoleUI {
     }
 
     private void viewMyOrders() {
-        System.out.println("\n----- 我的订单 -----");
+        clearScreen();
+        printTitle("我的订单");
+        
         List<Order> orders = currentUser.getOrders();
         
         if (orders.isEmpty()) {
-            System.out.println("暂无订单");
+            printWarning("暂无订单");
+            pressEnterToContinue();
             return;
         }
         
-        for (int i = 0; i < orders.size(); i++) {
-            Order order = orders.get(i);
-            System.out.println((i + 1) + ". " + order.toString());
-            System.out.println();
+        // 使用Set去重，避免重复显示
+        java.util.Set<String> displayedOrderIds = new java.util.HashSet<>();
+        int displayIndex = 1;
+        
+        for (Order order : orders) {
+            // 避免重复显示相同订单
+            if (!displayedOrderIds.contains(order.getOrderId())) {
+                displayedOrderIds.add(order.getOrderId());
+                
+                printSeparator('═', 70);
+                printColored(GREEN + BOLD, String.format("订单 #%d\n", displayIndex++));
+                
+                printColored(CYAN, "订单编号: ");
+                printlnColored(WHITE, order.getOrderId());
+                
+                printColored(CYAN, "电影名称: ");
+                printlnColored(WHITE, order.getShow().getMovie().getTitle());
+                
+                printColored(CYAN, "放映时间: ");
+                printlnColored(WHITE, order.getShow().getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+                
+                printColored(CYAN, "座位信息: ");
+                StringBuilder seatInfo = new StringBuilder();
+                for (Seat seat : order.getSeats()) {
+                    if (seatInfo.length() > 0) seatInfo.append(", ");
+                    seatInfo.append(seat.getSeatId());
+                    if (seat instanceof VIPSeat) {
+                        seatInfo.append("(VIP)");
+                    }
+                }
+                printlnColored(WHITE, seatInfo.toString());
+                
+                printColored(CYAN, "创建时间: ");
+                printlnColored(WHITE, order.getCreateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                
+                printColored(CYAN, "订单状态: ");
+                switch (order.getStatus()) {
+                    case PENDING:
+                        printColored(YELLOW + BOLD, "待支付");
+                        break;
+                    case PAID:
+                        printColored(GREEN + BOLD, "已支付");
+                        break;
+                    case CANCELLED:
+                        printColored(RED, "已取消");
+                        break;
+                    case REFUNDED:
+                        printColored(PURPLE, "已退款");
+                        break;
+                }
+                System.out.println();
+                
+                printColored(CYAN, "订单金额: ");
+                printColored(YELLOW + BOLD, String.format("￥%.2f", order.getTotalAmount()));
+                System.out.println("\n");
+            }
         }
+        
+        printSeparator('═', 70);
+        pressEnterToContinue();
     }
 
     private void refundTicket() {
