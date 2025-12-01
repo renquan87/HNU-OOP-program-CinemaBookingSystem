@@ -153,18 +153,27 @@ public class ConsoleUI {
     }
 
     public void start() {
-        clearScreen();
-        printTitle("欢迎使用电影院购票系统");
-        
-        login();
-        
-        if (currentUser != null) {
+        while (true) {
+            clearScreen();
+            printTitle("欢迎使用电影院购票系统");
+            
+            login();
+            
+            // 如果用户选择了退出系统，login()会返回null
+            if (currentUser == null) {
+                // 检查是否是主动退出系统
+                break;
+            }
+            
             newMethods = new NewMethods(cinemaManager, bookingService, scanner, currentUser);
             if (currentUser.isAdmin()) {
                 showAdminMenu();
             } else {
                 showCustomerMenu();
             }
+            
+            // 退出菜单后，重置用户，准备重新登录
+            currentUser = null;
         }
         
         clearScreen();
@@ -196,7 +205,7 @@ public class ConsoleUI {
                     performRegister();
                     break;
                 case "0":
-                    return;
+                    System.exit(0); // 退出整个程序
                 default:
                     printError("无效选择，请输入0-2之间的数字");
                     pressEnterToContinue();
@@ -364,10 +373,6 @@ public class ConsoleUI {
                     break;
                 case "0":
                     newMethods.logout();
-                    login();
-                    if (currentUser != null) {
-                        newMethods = new NewMethods(cinemaManager, bookingService, scanner, currentUser);
-                    }
                     return;
                 default:
                     System.out.println("无效选择，请重试");
