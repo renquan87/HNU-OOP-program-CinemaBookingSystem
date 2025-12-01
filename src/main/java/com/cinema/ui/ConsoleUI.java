@@ -377,16 +377,21 @@ public class ConsoleUI {
 
     private void showAdminMenu() {
         while (true) {
-            System.out.println("\n===== 管理员菜单 =====");
-            System.out.println("1. 管理电影信息");
-            System.out.println("2. 管理放映厅");
-            System.out.println("3. 管理场次");
-            System.out.println("4. 查看统计信息");
-            System.out.println("5. 浏览电影");
-            System.out.println("6. 查询场次");
-            System.out.println("0. 退出");
-            System.out.print("请选择操作: ");
+            clearScreen();
+            printTitle("管理员菜单");
+            printlnColored(CYAN, "\n请选择操作：\n");
             
+            printMenuItem(1, "管理电影信息");
+            printMenuItem(2, "管理放映厅");
+            printMenuItem(3, "管理场次");
+            printMenuItem(4, "查看统计信息");
+            printMenuItem(5, "管理用户");
+            printMenuItem(6, "浏览电影");
+            printMenuItem(7, "查询场次");
+            printMenuItem(8, "数据备份");
+            printMenuItem(0, "退出登录");
+            
+            printColored(YELLOW, "\n请选择操作 (0-8): ");
             String choice = scanner.nextLine().trim();
             
             switch (choice) {
@@ -400,24 +405,25 @@ public class ConsoleUI {
                     manageShows();
                     break;
                 case "4":
-                    newMethods.manageUsers();
-                    break;
-                case "5":
                     viewStatistics();
                     break;
-                case "6":
-                    newMethods.backupData();
+                case "5":
+                    newMethods.manageUsers();
                     break;
-                case "7":
+                case "6":
                     browseMovies();
                     break;
-                case "8":
+                case "7":
                     searchShows();
+                    break;
+                case "8":
+                    newMethods.backupData();
                     break;
                 case "0":
                     return;
                 default:
-                    System.out.println("无效选择，请重试");
+                    printError("无效选择，请输入0-8之间的数字");
+                    pressEnterToContinue();
             }
         }
     }
