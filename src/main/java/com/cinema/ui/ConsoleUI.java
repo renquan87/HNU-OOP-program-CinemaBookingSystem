@@ -28,6 +28,7 @@ public class ConsoleUI {
     private static final String PURPLE = "\u001B[35m";
     private static final String CYAN = "\u001B[36m";
     private static final String WHITE = "\u001B[37m";
+    private static final String ORANGE = "\u001B[38;5;208m"; // 橙色
     private static final String BOLD = "\u001B[1m";
     
     // 界面装饰符号
@@ -105,10 +106,16 @@ public class ConsoleUI {
         int leftPadding = padding;
         int rightPadding = width - title.length() - leftPadding;
         
+        // 构建标题行
+        StringBuilder titleLine = new StringBuilder();
+        titleLine.append(VERTICAL);
+        titleLine.append(" ".repeat(leftPadding));
+        titleLine.append(title);
+        titleLine.append(" ".repeat(rightPadding));
+        titleLine.append(VERTICAL);
+        
         printColored(CYAN, CORNER_TL + border + CORNER_TR + "\n");
-        printColored(CYAN, VERTICAL);
-        printColored(YELLOW + BOLD, " ".repeat(leftPadding) + title + " ".repeat(rightPadding));
-        printColored(CYAN, VERTICAL + "\n");
+        printColored(CYAN + YELLOW + BOLD, titleLine.toString() + "\n");
         printColored(CYAN, CORNER_BL + border + CORNER_BR + "\n");
     }
     
@@ -615,17 +622,66 @@ public class ConsoleUI {
     }
 
     private void purchaseTicket() {
-        System.out.println("\n----- 购买电影票 -----");
+        clearScreen();
+        printTitle("购买电影票");
         
-        // 先查询场次
-        searchShows();
+        // 获取所有场次并显示
+        List<Show> shows = cinemaManager.getAllShows();
         
-        System.out.print("请输入场次ID: ");
-        String showId = scanner.nextLine().trim();
+        if (shows.isEmpty()) {
+            printWarning("暂无场次信息");
+            pressEnterToContinue();
+            return;
+        }
         
-        Show show = cinemaManager.getShow(showId);
+        // 显示场次列表
+        printSeparator('═', 80);
+        printColored(GREEN + BOLD, "可用场次列表：\n");
+        
+        java.util.Map<String, Show> showMap = new java.util.HashMap<>();
+        int index = 1;
+        
+        for (Show show : shows) {
+            // 只显示未来的场次
+            if (show.getStartTime().isAfter(java.time.LocalDateTime.now())) {
+                printColored(CYAN, String.format("%d. ", index++));
+                printColored(WHITE, show.getMovie().getTitle());
+                printColored(CYAN, " - ");
+                printColored(YELLOW, show.getScreeningRoom().getName());
+                printColored(CYAN, " (");
+                printColored(WHITE, show.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+                printColored(CYAN, ") | ");
+                
+                int available = show.getAvailableSeatsCount();
+                int total = show.getTotalSeats();
+                if (available == 0) {
+                    printColored(RED, "已满座");
+                } else if (available < total * 0.2) {
+                    printColored(YELLOW, "可用座位: " + available + " (座位紧张)");
+                } else {
+                    printColored(GREEN, "可用座位: " + available);
+                }
+                System.out.println();
+                
+                showMap.put(String.valueOf(index - 1), show);
+            }
+        }
+        
+        if (showMap.isEmpty()) {
+            printWarning("暂无可用场次");
+            pressEnterToContinue();
+            return;
+        }
+        
+        printSeparator('═', 80);
+        
+        printColored(YELLOW, "\n请选择场次 (1-" + (index - 1) + "): ");
+        String choice = scanner.nextLine().trim();
+        
+        Show show = showMap.get(choice);
         if (show == null) {
-            System.out.println("场次不存在");
+            printError("无效选择");
+            pressEnterToContinue();
             return;
         }
         
@@ -646,35 +702,108 @@ public class ConsoleUI {
             seatIdList.add(seatId.trim());
         }
         
+        // 先检查过期订单
+        bookingService.checkExpiredOrders();
+        
         try {
-            Order order = bookingService.createOrder(currentUser, show, seatIdList);
+            // 显示选项
+            clearScreen();
+            printTitle("确认订单");
+            printlnColored(CYAN, "\n请选择操作：\n");
             
-            System.out.println("\n----- 订单信息 -----");
-            System.out.println("订单ID: " + order.getOrderId());
-            System.out.println("电影: " + show.getMovie().getTitle());
-            System.out.println("场次时间: " + show.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
-            System.out.println("座位: " + order.getSeatIds());
-            System.out.println("总金额: ￥" + order.getTotalAmount());
+            printMenuItem(1, "立即支付");
+            printMenuItem(2, "预定座位（15分钟内支付）");
+            printMenuItem(0, "取消");
             
-            System.out.print("确认支付？(Y/N): ");
-            String confirm = scanner.nextLine().trim();
+            printColored(YELLOW, "\n请选择操作: ");
+            String actionChoice = scanner.nextLine().trim();
             
-            if (confirm.equalsIgnoreCase("Y")) {
-                try {
-                    bookingService.processPayment(order);
-                    printSuccess("支付成功！订单已完成。");
-                } catch (PaymentFailedException e) {
-                    printError("支付失败: " + e.getMessage());
-                    printWarning("订单已取消，座位已释放");
-                }
-            } else {
-                try {
-                    bookingService.cancelOrder(order);
-                    printInfo("订单已取消");
-                } catch (InvalidBookingException e) {
-                    printError("取消订单失败: " + e.getMessage());
-                }
+            Order order;
+            
+            switch (actionChoice) {
+                case "1": // 立即支付
+                    order = bookingService.createOrder(currentUser, show, seatIdList);
+                    
+                    System.out.println("\n----- 订单信息 -----");
+                    printlnColored(CYAN, "订单ID: ");
+                    printlnColored(WHITE, order.getOrderId());
+                    printlnColored(CYAN, "电影: ");
+                    printlnColored(WHITE, show.getMovie().getTitle());
+                    printlnColored(CYAN, "场次时间: ");
+                    printlnColored(WHITE, show.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+                    printlnColored(CYAN, "座位: ");
+                    printlnColored(WHITE, order.getSeatIds());
+                    printlnColored(CYAN, "总金额: ");
+                    printColored(YELLOW + BOLD, "￥" + order.getTotalAmount());
+                    System.out.println();
+                    
+                    printColored(YELLOW, "确认支付？(Y/N): ");
+                    String confirm = scanner.nextLine().trim();
+                    
+                    if (confirm.equalsIgnoreCase("Y")) {
+                        try {
+                            bookingService.processPayment(order);
+                            printSuccess("支付成功！订单已完成。");
+                        } catch (PaymentFailedException e) {
+                            printError("支付失败: " + e.getMessage());
+                            printWarning("订单已取消，座位已释放");
+                        }
+                    } else {
+                        try {
+                            bookingService.cancelOrder(order);
+                            printInfo("订单已取消");
+                        } catch (InvalidBookingException e) {
+                            printError("取消订单失败: " + e.getMessage());
+                        }
+                    }
+                    break;
+                    
+                case "2": // 预定座位
+                    order = bookingService.reserveOrder(currentUser, show, seatIdList);
+                    
+                    System.out.println("\n----- 预订成功 -----");
+                    printlnColored(CYAN, "订单ID: ");
+                    printlnColored(WHITE, order.getOrderId());
+                    printlnColored(CYAN, "电影: ");
+                    printlnColored(WHITE, show.getMovie().getTitle());
+                    printlnColored(CYAN, "场次时间: ");
+                    printlnColored(WHITE, show.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+                    printlnColored(CYAN, "座位: ");
+                    printlnColored(WHITE, order.getSeatIds());
+                    printlnColored(CYAN, "总金额: ");
+                    printColored(YELLOW + BOLD, "￥" + order.getTotalAmount());
+                    System.out.println();
+                    
+                    printWarning("座位已锁定，请在15分钟内完成支付！");
+                    printInfo("锁定时间剩余: " + order.getRemainingLockMinutes() + " 分钟");
+                    
+                    printColored(YELLOW, "\n是否立即支付？(Y/N): ");
+                    String payConfirm = scanner.nextLine().trim();
+                    
+                    if (payConfirm.equalsIgnoreCase("Y")) {
+                        try {
+                            bookingService.processReservedOrderPayment(order);
+                            printSuccess("支付成功！订单已完成。");
+                        } catch (PaymentFailedException e) {
+                            printError("支付失败: " + e.getMessage());
+                            printWarning("预订仍然有效，您可以在15分钟内再次支付");
+                        } catch (InvalidBookingException e) {
+                            printError("支付失败: " + e.getMessage());
+                        }
+                    } else {
+                        printInfo("预订已创建，您可以在15分钟内通过'查看我的订单'完成支付");
+                    }
+                    break;
+                    
+                case "0": // 取消
+                    printInfo("已取消购买");
+                    return;
+                    
+                default:
+                    printError("无效选择");
+                    return;
             }
+
             
         } catch (SeatNotAvailableException e) {
             printError("座位预订失败: " + e.getMessage());
@@ -738,32 +867,45 @@ public class ConsoleUI {
         int screenPadding = (screenWidth - screenText.length()) / 2;
         printlnColored(CYAN + BOLD, " ".repeat(screenPadding) + screenText);
         
-        // 显示可用座位及价格
-        printSeparator('-', 50);
-        printlnColored(CYAN, "\n可用座位及价格：");
+        // 显示价格说明
+        printSeparator('-', 60);
+        printlnColored(CYAN, "\n座位定价说明：");
         
-        List<Seat> availableSeats = show.getAvailableSeats();
-        if (availableSeats.isEmpty()) {
-            printError("暂无可选座位");
-        } else {
-            for (Seat seat : availableSeats) {
-                double price = bookingService.calculateSeatPrice(show, seat);
-                printColored(GREEN, "  座位 " + seat.getSeatId() + ": ");
-                printColored(YELLOW + BOLD, String.format("￥%.2f", price));
-                if (seat instanceof VIPSeat) {
-                    printColored(PURPLE + BOLD, " (VIP座位)");
-                }
-                System.out.println();
+        // 计算不同类型座位的价格
+        double regularPrice = 0;
+        double vipPrice = 0;
+        
+        for (Seat seat : show.getAvailableSeats()) {
+            double price = bookingService.calculateSeatPrice(show, seat);
+            if (seat instanceof VIPSeat && vipPrice == 0) {
+                vipPrice = price;
+            } else if (!(seat instanceof VIPSeat) && regularPrice == 0) {
+                regularPrice = price;
+            }
+            
+            if (regularPrice > 0 && vipPrice > 0) {
+                break;
             }
         }
         
-        printSeparator('-', 50);
-        printInfo("请输入座位位置（格式：行-列，例如：1-1），输入'完成'结束选择");
+        printColored(GREEN, "  [O] 普通座位: ");
+        printColored(YELLOW + BOLD, String.format("￥%.2f", regularPrice));
+        System.out.println();
+        
+        printColored(PURPLE + BOLD, "  [V] VIP座位: ");
+        printColored(YELLOW + BOLD, String.format("￥%.2f", vipPrice));
+        printlnColored(PURPLE, " (前3排)");
+        
+        printSeparator('-', 60);
+        printInfo("请输入座位位置（格式：行-列，例如：1-1），多个座位用逗号分隔");
     }
 
     private void viewMyOrders() {
         clearScreen();
         printTitle("我的订单");
+        
+        // 先检查过期订单
+        bookingService.checkExpiredOrders();
         
         List<Order> orders = currentUser.getOrders();
         
@@ -776,13 +918,14 @@ public class ConsoleUI {
         // 使用Set去重，避免重复显示
         java.util.Set<String> displayedOrderIds = new java.util.HashSet<>();
         int displayIndex = 1;
+        java.util.Map<String, Order> reservableOrders = new java.util.HashMap<>();
         
         for (Order order : orders) {
             // 避免重复显示相同订单
             if (!displayedOrderIds.contains(order.getOrderId())) {
                 displayedOrderIds.add(order.getOrderId());
                 
-                printSeparator('═', 70);
+                printSeparator('═', 80);
                 printColored(GREEN + BOLD, String.format("订单 #%d\n", displayIndex++));
                 
                 printColored(CYAN, "订单编号: ");
@@ -813,6 +956,11 @@ public class ConsoleUI {
                     case PENDING:
                         printColored(YELLOW + BOLD, "待支付");
                         break;
+                    case RESERVED:
+                        printColored(ORANGE + BOLD, "已预订");
+                        printColored(ORANGE, " (剩余" + order.getRemainingLockMinutes() + "分钟)");
+                        reservableOrders.put(String.valueOf(displayIndex - 1), order);
+                        break;
                     case PAID:
                         printColored(GREEN + BOLD, "已支付");
                         break;
@@ -821,6 +969,9 @@ public class ConsoleUI {
                         break;
                     case REFUNDED:
                         printColored(PURPLE, "已退款");
+                        break;
+                    case EXPIRED:
+                        printColored(RED + BOLD, "已过期");
                         break;
                 }
                 System.out.println();
@@ -831,7 +982,50 @@ public class ConsoleUI {
             }
         }
         
-        printSeparator('═', 70);
+        printSeparator('═', 80);
+        
+        // 如果有可支付的预订订单，提供支付选项
+        if (!reservableOrders.isEmpty()) {
+            printlnColored(CYAN, "\n可支付的预订订单：");
+            for (String index : reservableOrders.keySet()) {
+                Order order = reservableOrders.get(index);
+                printColored(GREEN, index + ". ");
+                printlnColored(WHITE, order.getOrderId() + " - " + order.getShow().getMovie().getTitle());
+            }
+            
+            printColored(YELLOW, "\n输入订单编号进行支付，或按回车键返回: ");
+            String choice = scanner.nextLine().trim();
+            
+            if (!choice.isEmpty() && reservableOrders.containsKey(choice)) {
+                Order selectedOrder = reservableOrders.get(choice);
+                
+                printSeparator('-', 60);
+                printlnColored(CYAN, "订单详情：");
+                printlnColored(CYAN, "订单号: " + selectedOrder.getOrderId());
+                printlnColored(CYAN, "电影: " + selectedOrder.getShow().getMovie().getTitle());
+                printlnColored(CYAN, "座位: " + selectedOrder.getSeatIds());
+                printlnColored(CYAN, "金额: ");
+                printColored(YELLOW + BOLD, "￥" + selectedOrder.getTotalAmount());
+                printlnColored(ORANGE, "剩余锁定时间: " + selectedOrder.getRemainingLockMinutes() + " 分钟");
+                
+                printColored(YELLOW, "\n确认支付？(Y/N): ");
+                String confirm = scanner.nextLine().trim();
+                
+                if (confirm.equalsIgnoreCase("Y")) {
+                    try {
+                        bookingService.processReservedOrderPayment(selectedOrder);
+                        printSuccess("支付成功！订单已完成。");
+                    } catch (PaymentFailedException e) {
+                        printError("支付失败: " + e.getMessage());
+                    } catch (InvalidBookingException e) {
+                        printError("支付失败: " + e.getMessage());
+                    }
+                } else {
+                    printInfo("支付已取消");
+                }
+            }
+        }
+        
         pressEnterToContinue();
     }
 

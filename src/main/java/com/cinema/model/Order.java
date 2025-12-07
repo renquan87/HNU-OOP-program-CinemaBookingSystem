@@ -4,19 +4,23 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public class Order implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private String orderId;
     private Show show;
     private List<Seat> seats;
     private LocalDateTime createTime;
+    private LocalDateTime lockTime; // 预订锁定时间
     private OrderStatus status;
     private double totalAmount;
     private User user;
 
     public enum OrderStatus {
         PENDING,
+        RESERVED,
         PAID,
         CANCELLED,
-        REFUNDED
+        REFUNDED,
+        EXPIRED
     }
 
     public Order(String orderId, Show show, List<Seat> seats, LocalDateTime createTime, OrderStatus status) {
@@ -24,6 +28,7 @@ public class Order implements java.io.Serializable {
         this.show = show;
         this.seats = seats;
         this.createTime = createTime;
+        this.lockTime = null; // 初始为空，预订时设置
         this.status = status;
         this.totalAmount = calculateTotal();
     }
@@ -125,6 +130,34 @@ public class Order implements java.io.Serializable {
             sb.append(seats.get(i).getSeatId());
         }
         return sb.toString();
+    }
+    
+    public LocalDateTime getLockTime() {
+        return lockTime;
+    }
+    
+    public void setLockTime(LocalDateTime lockTime) {
+        this.lockTime = lockTime;
+    }
+    
+    // 检查预订是否过期（15分钟）
+    public boolean isExpired() {
+        if (lockTime == null || status != OrderStatus.RESERVED) {
+            return false;
+        }
+        return LocalDateTime.now().isAfter(lockTime.plusMinutes(15));
+    }
+    
+    // 获取剩余锁定时间（分钟）
+    public long getRemainingLockMinutes() {
+        if (lockTime == null || status != OrderStatus.RESERVED) {
+            return 0;
+        }
+        LocalDateTime expireTime = lockTime.plusMinutes(15);
+        if (LocalDateTime.now().isAfter(expireTime)) {
+            return 0;
+        }
+        return java.time.Duration.between(LocalDateTime.now(), expireTime).toMinutes();
     }
 
     @Override

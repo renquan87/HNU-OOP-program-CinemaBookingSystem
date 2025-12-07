@@ -71,6 +71,10 @@ public abstract class Seat implements java.io.Serializable {
     public void sell() {
         this.status = SeatStatus.SOLD;
     }
+    
+    public void book() {
+        this.status = SeatStatus.SOLD;
+    }
 
     public String getSeatId() {
         return row + "-" + col;

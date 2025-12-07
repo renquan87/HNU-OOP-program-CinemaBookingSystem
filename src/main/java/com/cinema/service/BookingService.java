@@ -6,6 +6,7 @@ import com.cinema.storage.SimpleDataStorage;
 import com.cinema.exception.*;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -244,5 +245,114 @@ public class BookingService {
                 }
             }
         }
+    }
+    
+    // 预订座位（锁定15分钟）
+    public Order reserveOrder(User user, Show show, List<String> seatIds) 
+            throws InvalidBookingException, SeatNotAvailableException {
+        if (show == null) {
+            throw new InvalidBookingException("场次不能为空");
+        }
+        
+        if (user == null) {
+            throw new InvalidBookingException("用户不能为空");
+        }
+        
+        if (seatIds == null || seatIds.isEmpty()) {
+            throw new InvalidBookingException("座位列表不能为空");
+        }
+        
+        // 检查座位可用性并锁定
+        List<Seat> selectedSeats = new ArrayList<>();
+        for (String seatId : seatIds) {
+            Seat seat = show.getSeat(seatId);
+            if (seat == null) {
+                throw new InvalidBookingException("座位不存在: " + seatId);
+            }
+            
+            if (!seat.isAvailable()) {
+                throw new SeatNotAvailableException("座位不可用: " + seatId, "座位已被预订或售出");
+            }
+            
+            // 锁定座位
+            seat.lock();
+            selectedSeats.add(seat);
+        }
+        
+        // 创建预订订单
+        String orderId = "ORDER-" + System.currentTimeMillis();
+        Order order = new Order(orderId, show, selectedSeats, LocalDateTime.now(), Order.OrderStatus.RESERVED);
+        order.setLockTime(LocalDateTime.now());
+        order.setUser(user);
+        
+        // 添加到订单列表
+        orders.put(orderId, order);
+        user.addOrder(order);
+        
+        // 锁定座位
+        for (Seat seat : selectedSeats) {
+            seat.lock();
+        }
+        
+        saveOrders();
+        return order;
+    }
+    
+    // 检查并处理过期的预订
+    public void checkExpiredOrders() {
+        List<Order> expiredOrders = new ArrayList<>();
+        
+        for (Order order : orders.values()) {
+            if (order.isExpired()) {
+                expiredOrders.add(order);
+            }
+        }
+        
+        for (Order order : expiredOrders) {
+            // 释放座位
+            for (Seat seat : order.getSeats()) {
+                seat.unlock();
+            }
+            
+            // 更新订单状态
+            order.setStatus(Order.OrderStatus.EXPIRED);
+            
+            // 从用户订单列表中移除
+            if (order.getUser() != null) {
+                order.getUser().removeOrder(order);
+            }
+            
+            // 从订单列表中移除
+            orders.remove(order.getOrderId());
+        }
+        
+        if (!expiredOrders.isEmpty()) {
+            saveOrders();
+        }
+    }
+    
+    // 支付预订订单
+    public void processReservedOrderPayment(Order order) throws PaymentFailedException, InvalidBookingException {
+        if (order == null) {
+            throw new InvalidBookingException("订单不存在");
+        }
+        
+        if (order.getStatus() != Order.OrderStatus.RESERVED) {
+            throw new InvalidBookingException("订单状态不是预订状态");
+        }
+        
+        if (order.isExpired()) {
+            throw new InvalidBookingException("预订已过期");
+        }
+        
+        // 更新订单状态为已支付
+        order.setStatus(Order.OrderStatus.PAID);
+        
+        // 确认座位（将锁定状态改为已售出）
+        for (Seat seat : order.getSeats()) {
+            seat.book();
+        }
+        
+        saveOrders();
     }
 }
