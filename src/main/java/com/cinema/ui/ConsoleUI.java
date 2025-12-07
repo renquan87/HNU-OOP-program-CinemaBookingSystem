@@ -100,9 +100,14 @@ public class ConsoleUI {
         int width = Math.max(title.length() + 10, 60);
         String border = LINE.repeat(width);
         
+        // 计算标题前后的空格数，确保总宽度正确
+        int padding = (width - title.length()) / 2;
+        int leftPadding = padding;
+        int rightPadding = width - title.length() - leftPadding;
+        
         printColored(CYAN, CORNER_TL + border + CORNER_TR + "\n");
         printColored(CYAN, VERTICAL);
-        printColored(YELLOW + BOLD, " ".repeat((width - title.length()) / 2) + title);
+        printColored(YELLOW + BOLD, " ".repeat(leftPadding) + title + " ".repeat(rightPadding));
         printColored(CYAN, VERTICAL + "\n");
         printColored(CYAN, CORNER_BL + border + CORNER_BR + "\n");
     }
@@ -111,7 +116,11 @@ public class ConsoleUI {
      * 打印分隔线
      */
     private void printSeparator(char character, int length) {
-        printlnColored(CYAN, String.valueOf(character).repeat(length));
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append(character);
+        }
+        printlnColored(CYAN, sb.toString());
     }
     
     /**
@@ -723,8 +732,11 @@ public class ConsoleUI {
         }
         
         // 显示屏幕
-        printSeparator('═', seats[0].length * 3 + 5);
-        printlnColored(CYAN + BOLD, "           银幕");
+        int screenWidth = seats[0].length * 3 + 5;
+        printSeparator('═', screenWidth);
+        String screenText = "银幕";
+        int screenPadding = (screenWidth - screenText.length()) / 2;
+        printlnColored(CYAN + BOLD, " ".repeat(screenPadding) + screenText);
         
         // 显示可用座位及价格
         printSeparator('-', 50);
