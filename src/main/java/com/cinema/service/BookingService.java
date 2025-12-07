@@ -202,9 +202,20 @@ public class BookingService {
         return pricingStrategy.calculatePrice(show, seat);
     }
 
-    public void setPricingStrategy(PricingStrategy pricingStrategy) {
-        // Note: This would require re-initializing the singleton
-        throw new UnsupportedOperationException("Changing pricing strategy requires service restart");
+    public PricingStrategy getPricingStrategy() {
+        return pricingStrategy;
+    }
+    
+    public void setPricingStrategy(PricingStrategy newPricingStrategy) {
+        // 由于是单例模式，我们需要通过反射来修改pricingStrategy字段
+        try {
+            java.lang.reflect.Field field = BookingService.class.getDeclaredField("pricingStrategy");
+            field.setAccessible(true);
+            field.set(instance, newPricingStrategy);
+            field.setAccessible(false);
+        } catch (Exception e) {
+            throw new RuntimeException("无法更改定价策略: " + e.getMessage());
+        }
     }
     
     private void loadOrders() {

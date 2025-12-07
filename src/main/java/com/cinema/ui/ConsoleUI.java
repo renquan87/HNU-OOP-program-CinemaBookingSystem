@@ -203,38 +203,49 @@ public class ConsoleUI {
     private void login() {
         while (true) {
             clearScreen();
-            printTitle("用户登录系统");
-            printlnColored(CYAN, "\n请选择操作：\n");
+            printTitle("电影院购票系统");
+            printlnColored(CYAN, "\n请选择登录方式：\n");
             
-            printMenuItem(1, "用户登录");
-            printMenuItem(2, "用户注册");
+            printMenuItem(1, "普通用户登录");
+            printMenuItem(2, "管理员登录");
+            printMenuItem(3, "用户注册");
             printMenuItem(0, "退出系统");
             
-            printColored(YELLOW, "\n请选择操作 (0-2): ");
+            printColored(YELLOW, "\n请选择操作 (0-3): ");
             String choice = scanner.nextLine().trim();
             
             switch (choice) {
                 case "1":
-                    if (performLogin()) {
+                    if (performLogin(false)) {
                         printSuccess("登录成功！");
                         return;
                     }
                     break;
                 case "2":
+                    if (performLogin(true)) {
+                        printSuccess("管理员登录成功！");
+                        return;
+                    }
+                    break;
+                case "3":
                     performRegister();
                     break;
                 case "0":
                     System.exit(0); // 退出整个程序
                 default:
-                    printError("无效选择，请输入0-2之间的数字");
+                    printError("无效选择，请输入0-3之间的数字");
                     pressEnterToContinue();
             }
         }
     }
     
-    private boolean performLogin() {
+    private boolean performLogin(boolean isAdminLogin) {
         clearScreen();
-        printTitle("用户登录");
+        if (isAdminLogin) {
+            printTitle("管理员登录");
+        } else {
+            printTitle("用户登录");
+        }
         
         printColored(CYAN, "请输入用户ID: ");
         String userId = scanner.nextLine().trim();
@@ -247,6 +258,19 @@ public class ConsoleUI {
         
         User user = cinemaManager.getUser(userId);
         if (user != null) {
+            // 验证角色是否匹配
+            if (isAdminLogin && !user.isAdmin()) {
+                printError("该用户不是管理员，无法使用管理员登录");
+                pressEnterToContinue();
+                return false;
+            }
+            
+            if (!isAdminLogin && user.isAdmin()) {
+                printError("管理员用户请使用管理员登录入口");
+                pressEnterToContinue();
+                return false;
+            }
+            
             currentUser = user;
             printSuccess("登录成功！欢迎，" + currentUser.getName());
             if (currentUser.isAdmin()) {
@@ -341,24 +365,26 @@ public class ConsoleUI {
 
     private void showCustomerMenu() {
         while (true) {
-            System.out.println("\n===== 用户菜单 =====");
-            System.out.println("当前用户: " + currentUser.getName() + " (" + 
+            clearScreen();
+            printTitle("用户菜单");
+            printlnColored(CYAN, "\n当前用户: " + currentUser.getName() + " (" + 
                 (currentUser.isAdmin() ? "管理员" : "普通用户") + ")");
-            System.out.println("1. 浏览电影");
-            System.out.println("2. 查询场次");
-            System.out.println("3. 购买电影票");
-            System.out.println("4. 查看我的订单");
-            System.out.println("5. 退票");
-            System.out.println("6. 修改个人信息");
-            System.out.println("7. 切换定价策略");
+            printlnColored(CYAN, "\n请选择操作：\n");
+            
+            printMenuItem(1, "浏览电影");
+            printMenuItem(2, "查询场次");
+            printMenuItem(3, "购买电影票");
+            printMenuItem(4, "查看我的订单");
+            printMenuItem(5, "退票");
+            printMenuItem(6, "修改个人信息");
             
             if (currentUser.isAdmin()) {
-                System.out.println("8. 管理员功能");
+                printMenuItem(7, "进入管理员菜单");
             }
             
-            System.out.println("0. 退出登录");
-            System.out.print("请选择操作: ");
+            printMenuItem(0, "退出登录");
             
+            printColored(YELLOW, "\n请选择操作: ");
             String choice = scanner.nextLine().trim();
             
             switch (choice) {
@@ -381,20 +407,19 @@ public class ConsoleUI {
                     newMethods.editProfile();
                     break;
                 case "7":
-                    switchPricingStrategy();
-                    break;
-                case "8":
                     if (currentUser.isAdmin()) {
                         showAdminMenu();
                     } else {
-                        System.out.println("权限不足");
+                        printError("权限不足");
+                        pressEnterToContinue();
                     }
                     break;
                 case "0":
                     newMethods.logout();
                     return;
                 default:
-                    System.out.println("无效选择，请重试");
+                    printError("无效选择，请重试");
+                    pressEnterToContinue();
             }
         }
     }
@@ -410,12 +435,13 @@ public class ConsoleUI {
             printMenuItem(3, "管理场次");
             printMenuItem(4, "查看统计信息");
             printMenuItem(5, "管理用户");
-            printMenuItem(6, "浏览电影");
-            printMenuItem(7, "查询场次");
-            printMenuItem(8, "数据备份");
+            printMenuItem(6, "切换定价策略");
+            printMenuItem(7, "浏览电影");
+            printMenuItem(8, "查询场次");
+            printMenuItem(9, "数据备份");
             printMenuItem(0, "退出登录");
             
-            printColored(YELLOW, "\n请选择操作 (0-8): ");
+            printColored(YELLOW, "\n请选择操作 (0-9): ");
             String choice = scanner.nextLine().trim();
             
             switch (choice) {
@@ -435,18 +461,21 @@ public class ConsoleUI {
                     newMethods.manageUsers();
                     break;
                 case "6":
-                    browseMovies();
+                    switchPricingStrategy();
                     break;
                 case "7":
-                    searchShows();
+                    browseMovies();
                     break;
                 case "8":
+                    searchShows();
+                    break;
+                case "9":
                     newMethods.backupData();
                     break;
                 case "0":
                     return;
                 default:
-                    printError("无效选择，请输入0-8之间的数字");
+                    printError("无效选择，请输入0-9之间的数字");
                     pressEnterToContinue();
             }
         }
@@ -902,25 +931,37 @@ public class ConsoleUI {
     }
 
     private void switchPricingStrategy() {
-        System.out.println("\n----- 切换定价策略 -----");
-        System.out.println("1. 标准定价");
-        System.out.println("2. 高级定价");
-        System.out.print("请选择定价策略: ");
+        clearScreen();
+        printTitle("定价策略管理");
+        printlnColored(CYAN, "\n当前定价策略: " + 
+            (bookingService.getPricingStrategy().getClass().getSimpleName().equals("StandardPricing") ? "标准定价" : "高级定价"));
+        printlnColored(CYAN, "\n请选择新的定价策略：\n");
         
+        printMenuItem(1, "标准定价 - 基础票价，无额外费用");
+        printMenuItem(2, "高级定价 - VIP座位加价，时段差异化定价");
+        printMenuItem(0, "返回");
+        
+        printColored(YELLOW, "\n请选择操作: ");
         String choice = scanner.nextLine().trim();
         
         switch (choice) {
             case "1":
-                System.out.println("已切换到标准定价策略");
-                // Note: In a real implementation, you'd need to restart the service
+                bookingService.setPricingStrategy(new com.cinema.strategy.StandardPricing());
+                printSuccess("已切换到标准定价策略");
+                printlnColored(CYAN, "所有座位将使用基础票价");
                 break;
             case "2":
-                System.out.println("已切换到高级定价策略");
-                // Note: In a real implementation, you'd need to restart the service
+                bookingService.setPricingStrategy(new com.cinema.strategy.PremiumPricing());
+                printSuccess("已切换到高级定价策略");
+                printlnColored(CYAN, "VIP座位将加价20%，高峰时段票价上浮10%");
                 break;
+            case "0":
+                return;
             default:
-                System.out.println("无效选择");
+                printError("无效选择");
         }
+        
+        pressEnterToContinue();
     }
 
     private void manageMovies() {
