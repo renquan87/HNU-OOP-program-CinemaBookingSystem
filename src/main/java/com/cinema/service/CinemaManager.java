@@ -24,8 +24,15 @@ public class CinemaManager {
         this.rooms = new ConcurrentHashMap<>();
         this.shows = new ConcurrentHashMap<>();
         this.users = new ConcurrentHashMap<>();
+        // 检查数据文件是否存在
+        boolean dataFilesExist = new java.io.File("data/movies.dat").exists() || 
+                               new java.io.File("data/rooms.dat").exists() || 
+                               new java.io.File("data/users.dat").exists();
+        
         loadData();
-        if (movies.isEmpty()) {
+        
+        // 如果数据文件不存在，则初始化默认数据
+        if (!dataFilesExist) {
             initializeDefaultData();
         }
     }
@@ -214,7 +221,10 @@ public class CinemaManager {
     }
 
     public List<Movie> getAllMovies() {
-        return new ArrayList<>(movies.values());
+        List<Movie> movieList = new ArrayList<>(movies.values());
+        // 按电影ID排序
+        movieList.sort((m1, m2) -> m1.getId().compareTo(m2.getId()));
+        return movieList;
     }
 
     public ScreeningRoom getScreeningRoom(String roomId) {

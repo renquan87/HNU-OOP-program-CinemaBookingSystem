@@ -46,6 +46,16 @@ public class ConsoleUI {
         this.scanner = new Scanner(System.in);
         this.currentUser = null;
         this.newMethods = null;
+        
+        // 添加关闭钩子，确保程序退出时保存数据
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                cinemaManager.saveAllData();
+                System.out.println("\n数据已自动保存");
+            } catch (Exception e) {
+                System.err.println("自动保存数据时出错: " + e.getMessage());
+            }
+        }));
     }
     
     // ========== 界面美化工具方法 ==========
@@ -153,32 +163,41 @@ public class ConsoleUI {
     }
 
     public void start() {
-        while (true) {
-            clearScreen();
-            printTitle("欢迎使用电影院购票系统");
-            
-            login();
-            
-            // 如果用户选择了退出系统，login()会返回null
-            if (currentUser == null) {
-                // 检查是否是主动退出系统
-                break;
+        try {
+            while (true) {
+                clearScreen();
+                printTitle("欢迎使用电影院购票系统");
+                
+                login();
+                
+                // 如果用户选择了退出系统，login()会返回null
+                if (currentUser == null) {
+                    // 检查是否是主动退出系统
+                    break;
+                }
+                
+                newMethods = new NewMethods(cinemaManager, bookingService, scanner, currentUser);
+                if (currentUser.isAdmin()) {
+                    showAdminMenu();
+                } else {
+                    showCustomerMenu();
+                }
+                
+                // 退出菜单后，重置用户，准备重新登录
+                currentUser = null;
             }
-            
-            newMethods = new NewMethods(cinemaManager, bookingService, scanner, currentUser);
-            if (currentUser.isAdmin()) {
-                showAdminMenu();
-            } else {
-                showCustomerMenu();
+        } finally {
+            // 确保在程序退出前保存所有数据
+            try {
+                cinemaManager.saveAllData();
+                clearScreen();
+                printTitle("感谢使用电影院购票系统");
+                printSuccess("所有数据已保存");
+                printColored(YELLOW, "再见！\n");
+            } catch (Exception e) {
+                System.err.println("保存数据时出错: " + e.getMessage());
             }
-            
-            // 退出菜单后，重置用户，准备重新登录
-            currentUser = null;
         }
-        
-        clearScreen();
-        printTitle("感谢使用电影院购票系统");
-        printColored(YELLOW, "再见！\n");
     }
 
     private void login() {
@@ -948,11 +967,37 @@ public class ConsoleUI {
         String actorsStr = scanner.nextLine().trim();
         List<String> actors = List.of(actorsStr.split(","));
         
-        System.out.print("请输入时长 (分钟): ");
-        int duration = Integer.parseInt(scanner.nextLine().trim());
+        // 输入时长（带验证）
+        int duration = 0;
+        while (true) {
+            try {
+                System.out.print("请输入时长 (分钟): ");
+                duration = Integer.parseInt(scanner.nextLine().trim());
+                if (duration <= 0) {
+                    System.out.println("时长必须大于0");
+                    continue;
+                }
+                break;
+            } catch (NumberFormatException e) {
+                System.out.println("请输入有效的数字");
+            }
+        }
         
-        System.out.print("请输入评分: ");
-        double rating = Double.parseDouble(scanner.nextLine().trim());
+        // 输入评分（带验证）
+        double rating = 0;
+        while (true) {
+            try {
+                System.out.print("请输入评分 (0-10): ");
+                rating = Double.parseDouble(scanner.nextLine().trim());
+                if (rating < 0 || rating > 10) {
+                    System.out.println("评分必须在0-10之间");
+                    continue;
+                }
+                break;
+            } catch (NumberFormatException e) {
+                System.out.println("请输入有效的数字");
+            }
+        }
         
         System.out.print("请输入类型: ");
         String genre = scanner.nextLine().trim();
@@ -960,8 +1005,23 @@ public class ConsoleUI {
         System.out.print("请输入简介: ");
         String description = scanner.nextLine().trim();
         
-        System.out.print("请输入上映日期 (YYYY-MM-DD): ");
-        LocalDate releaseTime = LocalDate.parse(scanner.nextLine().trim());
+        // 输入上映日期（带验证）
+        LocalDate releaseTime = null;
+        while (true) {
+            try {
+                System.out.print("请输入上映日期 (YYYY-MM-DD): ");
+                String dateStr = scanner.nextLine().trim();
+                releaseTime = LocalDate.parse(dateStr);
+                // 检查日期是否是未来的日期
+                if (releaseTime.isAfter(LocalDate.now().plusYears(1))) {
+                    System.out.println("上映日期不能超过一年后");
+                    continue;
+                }
+                break;
+            } catch (Exception e) {
+                System.out.println("日期格式错误，请使用YYYY-MM-DD格式，例如：2023-12-07");
+            }
+        }
         
         Movie movie = new Movie(id, title, releaseTime, actors, director, duration, rating, description, genre);
         cinemaManager.addMovie(movie);
@@ -1065,19 +1125,42 @@ public class ConsoleUI {
     }
 
     private void viewScreeningRooms() {
-        System.out.println("\n----- 放映厅列表 -----");
+        clearScreen();
+        printTitle("放映厅列表");
+        
         List<ScreeningRoom> rooms = cinemaManager.getAllScreeningRooms();
         
         if (rooms.isEmpty()) {
-            System.out.println("暂无放映厅");
+            printWarning("暂无放映厅信息");
+            pressEnterToContinue();
             return;
         }
         
         for (int i = 0; i < rooms.size(); i++) {
             ScreeningRoom room = rooms.get(i);
-            System.out.println((i + 1) + ". " + room.toString());
+            
+            printSeparator('═', 60);
+            printColored(GREEN + BOLD, String.format("%d. %s\n", i + 1, room.getName()));
+            
+            printColored(CYAN, "   放映厅ID: ");
+            printlnColored(WHITE, room.getId());
+            
+            printColored(CYAN, "   座位布局: ");
+            printlnColored(WHITE, room.getRows() + " 行 × " + room.getColumns() + " 列");
+            
+            printColored(CYAN, "   总座位数: ");
+            printlnColored(WHITE, String.valueOf(room.getTotalSeats()));
+            
+            printColored(CYAN, "   VIP座位: ");
+            printlnColored(PURPLE, String.valueOf(room.getVipSeatsCount()));
+            
+            printColored(CYAN, "   普通座位: ");
+            printlnColored(WHITE, String.valueOf(room.getRegularSeatsCount()));
             System.out.println();
         }
+        
+        printSeparator('═', 60);
+        pressEnterToContinue();
     }
 
     private void manageShows() {

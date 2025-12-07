@@ -1,6 +1,7 @@
 package com.cinema.model;
 
 public abstract class Seat implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     protected int row;
     protected int col;
     protected SeatStatus status;

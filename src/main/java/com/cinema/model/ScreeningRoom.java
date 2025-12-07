@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ScreeningRoom implements java.io.Serializable {
+    private static final long serialVersionUID = -4576372446438300048L;
     private String id;
     private String name;
     private String layout;
@@ -100,6 +101,28 @@ public class ScreeningRoom implements java.io.Serializable {
 
     public int getAvailableSeatsCount() {
         return getAvailableSeats().size();
+    }
+
+    public int getVipSeatsCount() {
+        int count = 0;
+        for (int row = 0; row < totalRows && row < 3; row++) {
+            for (int col = 0; col < totalCols; col++) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public int getRegularSeatsCount() {
+        return getTotalSeats() - getVipSeatsCount();
+    }
+
+    public int getRows() {
+        return totalRows;
+    }
+
+    public int getColumns() {
+        return totalCols;
     }
 
     @Override
