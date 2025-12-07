@@ -112,6 +112,20 @@ public class Show implements java.io.Serializable {
         }
         return null;
     }
+    
+    public Seat getSeat(String seatId) {
+        String[] parts = seatId.split("-");
+        if (parts.length != 2) {
+            return null;
+        }
+        try {
+            int row = Integer.parseInt(parts[0]);
+            int col = Integer.parseInt(parts[1]);
+            return getSeat(row, col);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
 
     public boolean hostSell(List<Seat> selectedSeats) {
         for (Seat seat : selectedSeats) {

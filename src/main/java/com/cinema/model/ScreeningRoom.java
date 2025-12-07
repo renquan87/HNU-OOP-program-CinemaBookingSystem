@@ -25,10 +25,15 @@ public class ScreeningRoom implements java.io.Serializable {
     private void initializeSeats() {
         for (int row = 0; row < totalRows; row++) {
             for (int col = 0; col < totalCols; col++) {
-                // First 3 rows are VIP seats, rest are regular seats
-                if (row < 3) {
+                // 第一排为优惠座位，中间几排为VIP座位
+                if (row == 0) {
+                    // 第一排为优惠座位
+                    seatLayout[row][col] = new DiscountSeat(row + 1, col + 1, 45.0);
+                } else if (row >= totalRows / 2 - 1 && row <= totalRows / 2 + 1) {
+                    // 中间3排为VIP座位（或中间2排，如果总行数较少）
                     seatLayout[row][col] = new VIPSeat(row + 1, col + 1);
                 } else {
+                    // 其他为普通座位
                     seatLayout[row][col] = new RegularSeat(row + 1, col + 1);
                 }
             }
@@ -114,7 +119,12 @@ public class ScreeningRoom implements java.io.Serializable {
     }
 
     public int getRegularSeatsCount() {
-        return getTotalSeats() - getVipSeatsCount();
+        return getTotalSeats() - getVipSeatsCount() - getDiscountSeatsCount();
+    }
+
+    public int getDiscountSeatsCount() {
+        // 第一排为优惠座位
+        return totalCols;
     }
 
     public int getRows() {

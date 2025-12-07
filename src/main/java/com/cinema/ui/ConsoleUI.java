@@ -816,6 +816,7 @@ public class ConsoleUI {
             }
         } catch (Exception e) {
             printError("购票失败: " + e.getMessage());
+            e.printStackTrace();
         }
         
         pressEnterToContinue();
@@ -826,7 +827,9 @@ public class ConsoleUI {
         
         // 显示图例
         printlnColored(CYAN, "\n图例：");
-        printColored(GREEN, "  [O] 可用座位  ");
+        printColored(BLUE, "  [D] 优惠座位(第一排)  ");
+        printColored(PURPLE, "[V] VIP座位(中间)  ");
+        printColored(GREEN, "[O] 普通座位  ");
         printColored(YELLOW, "[L] 已锁定  ");
         printlnColored(RED, "[X] 已售出");
         
@@ -848,6 +851,8 @@ public class ConsoleUI {
                 if (showSeat.isAvailable()) {
                     if (showSeat instanceof VIPSeat) {
                         printColored(PURPLE + BOLD, "[V] ");
+                    } else if (showSeat instanceof DiscountSeat) {
+                        printColored(BLUE, "[D] ");
                     } else {
                         printColored(GREEN, "[O] ");
                     }
@@ -874,27 +879,33 @@ public class ConsoleUI {
         // 计算不同类型座位的价格
         double regularPrice = 0;
         double vipPrice = 0;
+        double discountPrice = 0;
         
         for (Seat seat : show.getAvailableSeats()) {
             double price = bookingService.calculateSeatPrice(show, seat);
             if (seat instanceof VIPSeat && vipPrice == 0) {
                 vipPrice = price;
-            } else if (!(seat instanceof VIPSeat) && regularPrice == 0) {
+            } else if (seat instanceof DiscountSeat && discountPrice == 0) {
+                discountPrice = price;
+            } else if (!(seat instanceof VIPSeat) && !(seat instanceof DiscountSeat) && regularPrice == 0) {
                 regularPrice = price;
             }
             
-            if (regularPrice > 0 && vipPrice > 0) {
+            if (regularPrice > 0 && vipPrice > 0 && discountPrice > 0) {
                 break;
             }
         }
         
-        printColored(GREEN, "  [O] 普通座位: ");
-        printColored(YELLOW + BOLD, String.format("￥%.2f", regularPrice));
-        System.out.println();
+        printColored(BLUE, "  [D] 优惠座位: ");
+        printColored(YELLOW + BOLD, String.format("￥%.2f", discountPrice));
+        printlnColored(BLUE, " (第一排)");
         
         printColored(PURPLE + BOLD, "  [V] VIP座位: ");
         printColored(YELLOW + BOLD, String.format("￥%.2f", vipPrice));
-        printlnColored(PURPLE, " (前3排)");
+        printlnColored(PURPLE, " (中间排)");
+        
+        printColored(GREEN, "  [O] 普通座位: ");
+        printColored(YELLOW + BOLD, String.format("￥%.2f", regularPrice));
         
         printSeparator('-', 60);
         printInfo("请输入座位位置（格式：行-列，例如：1-1），多个座位用逗号分隔");
