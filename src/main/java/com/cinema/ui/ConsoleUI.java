@@ -827,8 +827,8 @@ public class ConsoleUI {
         
         // 显示图例
         printlnColored(CYAN, "\n图例：");
-        printColored(BLUE, "  [D] 优惠座位(第一排)  ");
-        printColored(PURPLE, "[V] VIP座位(中间)  ");
+        printColored(BLUE, "  [D] 优惠座位(第一排，8折)  ");
+        printColored(PURPLE, "[V] VIP座位(中间排，2倍价)  ");
         printColored(GREEN, "[O] 普通座位  ");
         printColored(YELLOW, "[L] 已锁定  ");
         printlnColored(RED, "[X] 已售出");
@@ -898,14 +898,15 @@ public class ConsoleUI {
         
         printColored(BLUE, "  [D] 优惠座位: ");
         printColored(YELLOW + BOLD, String.format("￥%.2f", discountPrice));
-        printlnColored(BLUE, " (第一排)");
+        printlnColored(BLUE, " (第一排，80%优惠)");
         
         printColored(PURPLE + BOLD, "  [V] VIP座位: ");
         printColored(YELLOW + BOLD, String.format("￥%.2f", vipPrice));
-        printlnColored(PURPLE, " (中间排)");
+        printlnColored(PURPLE, " (中间排，最佳观影体验)");
         
         printColored(GREEN, "  [O] 普通座位: ");
         printColored(YELLOW + BOLD, String.format("￥%.2f", regularPrice));
+        printlnColored(GREEN, " (标准价格)");
         
         printSeparator('-', 60);
         printInfo("请输入座位位置（格式：行-列，例如：1-1），多个座位用逗号分隔");

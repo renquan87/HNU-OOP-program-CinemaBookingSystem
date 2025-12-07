@@ -27,13 +27,13 @@ public class ScreeningRoom implements java.io.Serializable {
             for (int col = 0; col < totalCols; col++) {
                 // 第一排为优惠座位，中间几排为VIP座位
                 if (row == 0) {
-                    // 第一排为优惠座位
-                    seatLayout[row][col] = new DiscountSeat(row + 1, col + 1, 45.0);
+                    // 第一排为优惠座位，使用默认基准价格50元
+                    seatLayout[row][col] = new DiscountSeat(row + 1, col + 1, 50.0);
                 } else if (row >= totalRows / 2 - 1 && row <= totalRows / 2 + 1) {
                     // 中间3排为VIP座位（或中间2排，如果总行数较少）
                     seatLayout[row][col] = new VIPSeat(row + 1, col + 1);
                 } else {
-                    // 其他为普通座位
+                    // 其他为普通座位，使用默认基准价格
                     seatLayout[row][col] = new RegularSeat(row + 1, col + 1);
                 }
             }
