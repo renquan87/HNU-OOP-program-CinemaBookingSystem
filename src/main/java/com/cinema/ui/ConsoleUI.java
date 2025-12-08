@@ -106,17 +106,15 @@ public class ConsoleUI {
         int leftPadding = padding;
         int rightPadding = width - title.length() - leftPadding;
         
-        // 构建标题行
-        StringBuilder titleLine = new StringBuilder();
-        titleLine.append(VERTICAL);
-        titleLine.append(" ".repeat(leftPadding));
-        titleLine.append(title);
-        titleLine.append(" ".repeat(rightPadding));
-        titleLine.append(VERTICAL);
+        // 构建标题行，确保垂直符号对齐
+        String titleLine = VERTICAL + " ".repeat(leftPadding) + title + " ".repeat(rightPadding) + VERTICAL;
         
-        printColored(CYAN, CORNER_TL + border + CORNER_TR + "\n");
-        printColored(CYAN + YELLOW + BOLD, titleLine.toString() + "\n");
-        printColored(CYAN, CORNER_BL + border + CORNER_BR + "\n");
+        printColored(CYAN, CORNER_TL + border + CORNER_TR);
+        System.out.println();
+        printColored(CYAN + YELLOW + BOLD, titleLine);
+        System.out.println();
+        printColored(CYAN, CORNER_BL + border + CORNER_BR);
+        System.out.println();
     }
     
     /**
@@ -898,16 +896,13 @@ public class ConsoleUI {
         }
         
         printColored(BLUE, "  [D] 优惠座位: ");
-        printColored(YELLOW + BOLD, String.format("￥%.2f", discountPrice));
-        printlnColored(BLUE, " (第一排，80%价格)");
+        printlnColored(YELLOW + BOLD, String.format("￥%.2f", discountPrice));
         
         printColored(PURPLE + BOLD, "  [V] VIP座位: ");
-        printColored(YELLOW + BOLD, String.format("￥%.2f", vipPrice));
-        printlnColored(PURPLE, " (中间3排，比普通座位贵10元)");
+        printlnColored(YELLOW + BOLD, String.format("￥%.2f", vipPrice));
         
         printColored(GREEN, "  [O] 普通座位: ");
-        printColored(YELLOW + BOLD, String.format("￥%.2f", regularPrice));
-        printlnColored(GREEN, " (标准价格)");
+        printlnColored(YELLOW + BOLD, String.format("￥%.2f", regularPrice));
         
         printSeparator('-', 60);
         printInfo("请输入座位位置（格式：行-列，例如：1-1），多个座位用逗号分隔");
