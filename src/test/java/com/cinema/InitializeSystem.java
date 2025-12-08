@@ -141,12 +141,12 @@ public class InitializeSystem {
                 // 选择放映厅（轮换使用）
                 ScreeningRoom room = rooms.get((movieIndex + i) % rooms.size());
                 
-                // 计算放映时间（从今天开始的未来几天）
-                int daysFromNow = (movieIndex * 2 + i / 3) % 14 + 1; // 1-14天后
+                // 计算放映时间（从12月21日开始的未来日期）
+                int daysFrom21 = (movieIndex * 2 + i / 3) % 10 + 1; // 12月21日后的1-10天
                 int hourOfDay = 9 + (i % 4) * 4; // 9:00, 13:00, 17:00, 21:00
                 
                 LocalDateTime showTime = LocalDateTime.of(
-                    now.plusDays(daysFromNow).toLocalDate(),
+                    LocalDate.of(2025, 12, 21).plusDays(daysFrom21 - 1),
                     java.time.LocalTime.of(hourOfDay, 0)
                 );
                 
