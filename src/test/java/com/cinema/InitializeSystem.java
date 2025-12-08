@@ -150,13 +150,15 @@ public class InitializeSystem {
                     java.time.LocalTime.of(hourOfDay, 0)
                 );
                 
-                // 创建场次
+                // 创建场次，分别设置三种价格
                 Show show = new Show(
                     "SHOW-" + String.format("%03d", showIndex++),
                     movie,
                     room,
                     showTime,
-                    50.0 // 基础价格50元
+                    50.0, // 普通座位价格50元
+                    40.0, // 优惠座位价格40元（80%）
+                    60.0  // VIP座位价格60元（比普通贵10元）
                 );
                 
                 cinemaManager.addShow(show);

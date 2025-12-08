@@ -11,6 +11,8 @@ public class Show implements java.io.Serializable {
     private ScreeningRoom screeningRoom;
     private LocalDateTime startTime;
     private double basePrice;
+    private double discountPrice; // 优惠座位价格
+    private double vipPrice; // VIP座位价格
     private List<Seat> seats;
 
     public Show(String id, Movie movie, ScreeningRoom screeningRoom, LocalDateTime startTime, double basePrice) {
@@ -19,6 +21,22 @@ public class Show implements java.io.Serializable {
         this.screeningRoom = screeningRoom;
         this.startTime = startTime;
         this.basePrice = basePrice;
+        this.discountPrice = basePrice * 0.8; // 默认优惠价格为基准价格的80%
+        this.vipPrice = basePrice + 10.0; // 默认VIP价格为基准价格+10元
+        this.seats = new ArrayList<>();
+        initializeSeats();
+    }
+    
+    // 新的构造函数，允许设置三种价格
+    public Show(String id, Movie movie, ScreeningRoom screeningRoom, LocalDateTime startTime, 
+                double basePrice, double discountPrice, double vipPrice) {
+        this.id = id;
+        this.movie = movie;
+        this.screeningRoom = screeningRoom;
+        this.startTime = startTime;
+        this.basePrice = basePrice;
+        this.discountPrice = discountPrice;
+        this.vipPrice = vipPrice;
         this.seats = new ArrayList<>();
         initializeSeats();
     }
@@ -73,11 +91,31 @@ public class Show implements java.io.Serializable {
         this.basePrice = basePrice;
         updateSeatPrices();
     }
+    
+    public double getDiscountPrice() {
+        return discountPrice;
+    }
+    
+    public void setDiscountPrice(double discountPrice) {
+        this.discountPrice = discountPrice;
+        updateSeatPrices();
+    }
+    
+    public double getVipPrice() {
+        return vipPrice;
+    }
+    
+    public void setVipPrice(double vipPrice) {
+        this.vipPrice = vipPrice;
+        updateSeatPrices();
+    }
 
     private void updateSeatPrices() {
         for (Seat seat : seats) {
             if (seat instanceof VIPSeat) {
-                seat.setBasePrice(basePrice * 2);
+                seat.setBasePrice(vipPrice);
+            } else if (seat instanceof DiscountSeat) {
+                seat.setBasePrice(discountPrice);
             } else {
                 seat.setBasePrice(basePrice);
             }

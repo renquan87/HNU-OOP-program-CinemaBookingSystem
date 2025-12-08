@@ -828,17 +828,25 @@ public class ConsoleUI {
         // 显示图例
         printlnColored(CYAN, "\n图例：");
         printColored(BLUE, "  [D] 优惠座位(第一排，80%价格)  ");
-        printColored(PURPLE, "[V] VIP座位(中间3排，2倍价格)  ");
+        printColored(PURPLE, "[V] VIP座位(中间3排，比普通座位贵10元)  ");
         printColored(GREEN, "[O] 普通座位  ");
         printColored(YELLOW, "[L] 已锁定  ");
         printlnColored(RED, "[X] 已售出");
         
         Seat[][] seats = show.getScreeningRoom().getSeatLayout();
         
+        // 显示屏幕（放在顶部）
+        int screenWidth = seats[0].length * 4 - 1; // 调整宽度以匹配座位显示
+        printSeparator('═', screenWidth);
+        String screenText = "银幕";
+        int screenPadding = (screenWidth - screenText.length()) / 2;
+        printlnColored(CYAN + BOLD, " ".repeat(screenPadding) + screenText);
+        printSeparator('═', screenWidth);
+        
         // 打印列号
         printColored(CYAN, "\n     ");
         for (int col = 1; col <= seats[0].length; col++) {
-            printColored(CYAN, String.format("%2d ", col));
+            printColored(CYAN, String.format("%3d", col)); // 使用3位数字对齐
         }
         System.out.println();
         
@@ -864,13 +872,6 @@ public class ConsoleUI {
             }
             System.out.println();
         }
-        
-        // 显示屏幕
-        int screenWidth = seats[0].length * 3 + 5;
-        printSeparator('═', screenWidth);
-        String screenText = "银幕";
-        int screenPadding = (screenWidth - screenText.length()) / 2;
-        printlnColored(CYAN + BOLD, " ".repeat(screenPadding) + screenText);
         
         // 显示价格说明
         printSeparator('-', 60);
@@ -902,7 +903,7 @@ public class ConsoleUI {
         
         printColored(PURPLE + BOLD, "  [V] VIP座位: ");
         printColored(YELLOW + BOLD, String.format("￥%.2f", vipPrice));
-        printlnColored(PURPLE, " (中间3排，2倍价格)");
+        printlnColored(PURPLE, " (中间3排，比普通座位贵10元)");
         
         printColored(GREEN, "  [O] 普通座位: ");
         printColored(YELLOW + BOLD, String.format("￥%.2f", regularPrice));

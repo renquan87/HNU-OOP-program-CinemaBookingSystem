@@ -9,17 +9,16 @@ public class StandardPricing implements PricingStrategy {
     
     @Override
     public double calculatePrice(Show show, Seat seat) {
-        double basePrice = show.getBasePrice();
+        double basePrice;
         
-        // 根据座位类型调整价格
+        // 根据座位类型使用对应的价格
         if (seat instanceof VIPSeat) {
-            // VIP座位价格为基准价格的2倍
-            basePrice *= 2.0;
+            basePrice = show.getVipPrice();
         } else if (seat instanceof DiscountSeat) {
-            // 优惠座位价格为基准价格的80%
-            basePrice *= 0.8;
+            basePrice = show.getDiscountPrice();
+        } else {
+            basePrice = show.getBasePrice();
         }
-        // 普通座位保持基准价格不变
         
         // Weekend pricing (20% increase)
         if (isWeekend(show.getStartTime().getDayOfWeek().getValue())) {
