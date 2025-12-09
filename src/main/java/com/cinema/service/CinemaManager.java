@@ -289,7 +289,7 @@ public class CinemaManager {
         List<Show> matchingShows = new ArrayList<>();
         for (Show show : shows.values()) {
             boolean titleMatch = movieTitle == null || movieTitle.isEmpty() || 
-                               show.getMovie().getTitle().contains(movieTitle);
+                               show.getMovieTitle().contains(movieTitle);
             boolean dateMatch = date == null || 
                               show.getStartTime().toLocalDate().equals(date);
             
@@ -314,9 +314,7 @@ public class CinemaManager {
         }
         
         // 重建电影和场次的关系
-        // 注意：从MySQL加载的Show对象暂时没有关联的Movie和ScreeningRoom
-        // 这里暂时跳过重建关系，避免空指针异常
-        // 实际应用中需要从数据库加载关联关系或使用JOIN查询
+        // 由于使用JOIN查询已经加载了关联对象，这里不再需要重建
         
         // 重建用户和订单的关系（延迟到BookingService初始化后）
         // 这个关系重建将在BookingService初始化后完成

@@ -182,28 +182,66 @@ public class MySQLDataStorage {
     
     public Map<String, Show> loadShows() {
         Map<String, Show> shows = new HashMap<>();
-        String sql = "SELECT * FROM shows";
+        
+        // 先加载所有电影和放映厅
+        Map<String, Movie> movies = loadMovies();
+        Map<String, ScreeningRoom> rooms = loadScreeningRooms();
+        
+        // 使用JOIN查询加载场次及其关联数据
+        String sql = "SELECT s.*, m.title as movie_title, m.id as movie_id, " +
+                     "m.director as movie_director, m.duration as movie_duration, " +
+                     "m.actors as actors, m.genre as genre, m.rating as rating, m.description as description, " +
+                     "r.name as room_name, r.id as room_id, r.room_rows, r.room_columns " +
+                     "FROM shows s " +
+                     "LEFT JOIN movies m ON s.movie_id = m.id " +
+                     "LEFT JOIN screening_rooms r ON s.room_id = r.id";
         
         try (Connection conn = SimpleDatabaseConnection.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             
             while (rs.next()) {
-                // 创建基本的Show对象，使用新的构造函数
+                // 创建Movie对象
+                String actorsStr = rs.getString("actors");
+                List<String> actors = new ArrayList<>();
+                if (actorsStr != null && !actorsStr.isEmpty()) {
+                    actors = Arrays.asList(actorsStr.split(","));
+                }
+                
+                String genreStr = rs.getString("genre");
+                MovieGenre genre = MovieGenre.DRAMA; // 默认值
+                if (genreStr != null && !genreStr.isEmpty()) {
+                    genre = MovieGenre.fromDescription(genreStr);
+                }
+                
+                Movie movie = new Movie(
+                    rs.getString("movie_id"),
+                    rs.getString("movie_title"),
+                    LocalDate.now(), // 从数据库中应该有release_date字段，暂时使用当前日期
+                    actors,
+                    rs.getString("movie_director"),
+                    rs.getInt("movie_duration"),
+                    rs.getDouble("rating"),
+                    rs.getString("description"),
+                    genre
+                );
+                
+                // 创建ScreeningRoom对象
+                ScreeningRoom room = new ScreeningRoom(
+                    rs.getString("room_id"),
+                    rs.getString("room_name"),
+                    rs.getInt("room_rows"),
+                    rs.getInt("room_columns")
+                );
+                
+                // 创建Show对象
                 Show show = new Show(
                     rs.getString("id"),
+                    movie,
+                    room,
                     LocalDateTime.parse(rs.getString("start_time"), DATE_FORMATTER),
                     rs.getDouble("base_price")
                 );
-                
-                // 设置额外的属性
-                try {
-                    // 计算结束时间（如果数据库中没有存储）
-                    LocalDateTime startTime = show.getStartTime();
-                    // 这里可以设置end_time，但Show类可能没有这个字段
-                } catch (Exception e) {
-                    // 忽略错误
-                }
                 
                 shows.put(show.getId(), show);
             }
