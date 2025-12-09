@@ -95,16 +95,38 @@ public class ConsoleUI {
     }
     
     /**
+     * 计算文本在终端的显示宽度（中文等全角字符按2）
+     */
+    private int getDisplayWidth(String text) {
+        int width = 0;
+        for (char ch : text.toCharArray()) {
+            Character.UnicodeBlock block = Character.UnicodeBlock.of(ch);
+            boolean isWide = Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS.equals(block)
+                    || Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A.equals(block)
+                    || Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B.equals(block)
+                    || Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS.equals(block)
+                    || Character.UnicodeBlock.CJK_SYMBOLS_AND_PUNCTUATION.equals(block)
+                    || Character.UnicodeBlock.HALFWIDTH_AND_FULLWIDTH_FORMS.equals(block)
+                    || Character.UnicodeBlock.HANGUL_SYLLABLES.equals(block)
+                    || Character.UnicodeBlock.KATAKANA.equals(block)
+                    || Character.UnicodeBlock.HIRAGANA.equals(block);
+            width += isWide ? 2 : 1;
+        }
+        return width;
+    }
+
+    /**
      * 打印标题框
      */
     private void printTitle(String title) {
-        int width = Math.max(title.length() + 10, 60);
+        int titleWidth = getDisplayWidth(title);
+        int width = Math.max(titleWidth + 10, 60);
         String border = LINE.repeat(width);
         
-        // 计算标题前后的空格数，确保总宽度正确
-        int padding = (width - title.length()) / 2;
-        int leftPadding = padding;
-        int rightPadding = width - title.length() - leftPadding;
+        // 使用显示宽度计算填充，避免全角字符导致歪斜
+        int spaceTotal = width - titleWidth;
+        int leftPadding = spaceTotal / 2;
+        int rightPadding = spaceTotal - leftPadding;
         
         // 构建标题行，确保垂直符号对齐
         String titleLine = VERTICAL + " ".repeat(leftPadding) + title + " ".repeat(rightPadding) + VERTICAL;
