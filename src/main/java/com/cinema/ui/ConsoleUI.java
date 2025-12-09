@@ -59,6 +59,25 @@ public class ConsoleUI {
         }));
     }
     
+    // 辅助方法：安全地读取用户输入
+    private String readLine() {
+        try {
+            if (System.console() != null) {
+                String input = System.console().readLine();
+                return input != null ? input.trim() : "";
+            } else {
+                if (scanner.hasNextLine()) {
+                    String input = scanner.nextLine();
+                    return input != null ? input.trim() : "";
+                } else {
+                    return "";
+                }
+            }
+        } catch (Exception e) {
+            return "";
+        }
+    }
+    
     // ========== 界面美化工具方法 ==========
     
     /**
@@ -195,7 +214,7 @@ public class ConsoleUI {
      */
     private void pressEnterToContinue() {
         printColored(YELLOW, "\n按回车键继续...");
-        scanner.nextLine();
+        readLine();
     }
 
     public void start() {
@@ -248,7 +267,7 @@ public class ConsoleUI {
             printMenuItem(0, "退出系统");
             
             printColored(YELLOW, "\n请选择操作 (0-3): ");
-            String choice = scanner.nextLine().trim();
+            String choice = readLine();
             
             switch (choice) {
                 case "1":
@@ -284,7 +303,7 @@ public class ConsoleUI {
         }
         
         printColored(CYAN, "请输入用户ID: ");
-        String userId = scanner.nextLine().trim();
+        String userId = readLine();
         
         if (userId.isEmpty()) {
             printError("用户ID不能为空");
@@ -328,7 +347,7 @@ public class ConsoleUI {
         
         while (true) {
             System.out.print("请输入用户ID (字母数字组合，3-20位): ");
-            String userId = scanner.nextLine().trim();
+            String userId = readLine();
             
             if (userId.isEmpty()) {
                 System.out.println("用户ID不能为空");
@@ -351,14 +370,14 @@ public class ConsoleUI {
             }
             
             System.out.print("请输入姓名: ");
-            String name = scanner.nextLine().trim();
+            String name = readLine();
             if (name.isEmpty()) {
                 System.out.println("姓名不能为空");
                 continue;
             }
             
             System.out.print("请输入电话: ");
-            String phone = scanner.nextLine().trim();
+            String phone = readLine();
             if (phone.isEmpty()) {
                 System.out.println("电话不能为空");
                 continue;
@@ -370,7 +389,7 @@ public class ConsoleUI {
             }
             
             System.out.print("请输入邮箱: ");
-            String email = scanner.nextLine().trim();
+            String email = readLine();
             if (email.isEmpty()) {
                 System.out.println("邮箱不能为空");
                 continue;
@@ -382,7 +401,7 @@ public class ConsoleUI {
             }
             
             System.out.print("注册为管理员用户？(Y/N): ");
-            String adminChoice = scanner.nextLine().trim();
+            String adminChoice = readLine();
             boolean isAdmin = adminChoice.equalsIgnoreCase("Y");
             
             User.UserRole role = isAdmin ? User.UserRole.ADMIN : User.UserRole.CUSTOMER;
@@ -421,7 +440,7 @@ public class ConsoleUI {
             printMenuItem(0, "退出登录");
             
             printColored(YELLOW, "\n请选择操作: ");
-            String choice = scanner.nextLine().trim();
+            String choice = readLine();
             
             switch (choice) {
                 case "1":
@@ -478,7 +497,7 @@ public class ConsoleUI {
             printMenuItem(0, "退出登录");
             
             printColored(YELLOW, "\n请选择操作 (0-9): ");
-            String choice = scanner.nextLine().trim();
+            String choice = readLine();
             
             switch (choice) {
                 case "1":
@@ -577,10 +596,10 @@ public class ConsoleUI {
         printTitle("查询场次");
         
         printColored(CYAN, "请输入电影名称 (直接回车显示所有): ");
-        String movieTitle = scanner.nextLine().trim();
+        String movieTitle = readLine();
         
         printColored(CYAN, "请输入日期 (YYYY-MM-DD，直接回车显示所有): ");
-        String dateStr = scanner.nextLine().trim();
+        String dateStr = readLine();
         
         LocalDate date = null;
         if (!dateStr.isEmpty()) {
@@ -696,7 +715,7 @@ public class ConsoleUI {
         printSeparator('═', 80);
         
         printColored(YELLOW, "\n请选择场次 (1-" + (index - 1) + "): ");
-        String choice = scanner.nextLine().trim();
+        String choice = readLine();
         
         Show show = showMap.get(choice);
         if (show == null) {
@@ -709,7 +728,7 @@ public class ConsoleUI {
         displaySeatMap(show);
         
         System.out.print("请输入要购买的座位ID (多个座位用逗号分隔，格式: 行-列，如: 3-5,3-6): ");
-        String seatIdsStr = scanner.nextLine().trim();
+        String seatIdsStr = readLine();
         
         if (seatIdsStr.isEmpty()) {
             System.out.println("未选择座位");
@@ -736,7 +755,7 @@ public class ConsoleUI {
             printMenuItem(0, "取消");
             
             printColored(YELLOW, "\n请选择操作: ");
-            String actionChoice = scanner.nextLine().trim();
+            String actionChoice = readLine();
             
             Order order;
             
@@ -758,7 +777,7 @@ public class ConsoleUI {
                     System.out.println();
                     
                     printColored(YELLOW, "确认支付？(Y/N): ");
-                    String confirm = scanner.nextLine().trim();
+                    String confirm = readLine();
                     
                     if (confirm.equalsIgnoreCase("Y")) {
                         try {
@@ -798,7 +817,7 @@ public class ConsoleUI {
                     printInfo("锁定时间剩余: " + order.getRemainingLockMinutes() + " 分钟");
                     
                     printColored(YELLOW, "\n是否立即支付？(Y/N): ");
-                    String payConfirm = scanner.nextLine().trim();
+                    String payConfirm = readLine();
                     
                     if (payConfirm.equalsIgnoreCase("Y")) {
                         try {
@@ -1024,7 +1043,7 @@ public class ConsoleUI {
             }
             
             printColored(YELLOW, "\n输入订单编号进行支付，或按回车键返回: ");
-            String choice = scanner.nextLine().trim();
+            String choice = readLine();
             
             if (!choice.isEmpty() && reservableOrders.containsKey(choice)) {
                 Order selectedOrder = reservableOrders.get(choice);
@@ -1039,7 +1058,7 @@ public class ConsoleUI {
                 printlnColored(ORANGE, "剩余锁定时间: " + selectedOrder.getRemainingLockMinutes() + " 分钟");
                 
                 printColored(YELLOW, "\n确认支付？(Y/N): ");
-                String confirm = scanner.nextLine().trim();
+                String confirm = readLine();
                 
                 if (confirm.equalsIgnoreCase("Y")) {
                     try {
@@ -1118,7 +1137,7 @@ public class ConsoleUI {
         
         printSeparator('═', 70);
         printColored(YELLOW, "请输入要退票的订单编号 (1-" + (displayIndex-1) + ") 或输入0返回: ");
-        String choice = scanner.nextLine().trim();
+        String choice = readLine();
         
         if ("0".equals(choice)) {
             return;
@@ -1149,7 +1168,7 @@ public class ConsoleUI {
         printlnColored(YELLOW + BOLD, String.format("￥%.2f", selectedOrder.getTotalAmount()));
         
         printColored(YELLOW, "\n确认退票？(Y/N): ");
-        String confirm = scanner.nextLine().trim();
+        String confirm = readLine();
         
         if (confirm.equalsIgnoreCase("Y")) {
             try {
@@ -1178,7 +1197,7 @@ public class ConsoleUI {
         printMenuItem(0, "返回");
         
         printColored(YELLOW, "\n请选择操作: ");
-        String choice = scanner.nextLine().trim();
+        String choice = readLine();
         
         switch (choice) {
             case "1":
@@ -1207,7 +1226,7 @@ public class ConsoleUI {
         System.out.println("3. 查看所有电影");
         System.out.print("请选择操作: ");
         
-        String choice = scanner.nextLine().trim();
+        String choice = readLine();
         
         switch (choice) {
             case "1":
@@ -1227,7 +1246,7 @@ public class ConsoleUI {
     private void addMovie() {
         System.out.println("\n----- 添加电影 -----");
         System.out.print("请输入电影ID: ");
-        String id = scanner.nextLine().trim();
+        String id = readLine();
         
         if (cinemaManager.getMovie(id) != null) {
             System.out.println("电影ID已存在");
@@ -1235,13 +1254,13 @@ public class ConsoleUI {
         }
         
         System.out.print("请输入电影名称: ");
-        String title = scanner.nextLine().trim();
+        String title = readLine();
         
         System.out.print("请输入导演: ");
-        String director = scanner.nextLine().trim();
+        String director = readLine();
         
         System.out.print("请输入主演 (用逗号分隔): ");
-        String actorsStr = scanner.nextLine().trim();
+        String actorsStr = readLine();
         List<String> actors = List.of(actorsStr.split(","));
         
         // 输入时长（带验证）
@@ -1249,7 +1268,7 @@ public class ConsoleUI {
         while (true) {
             try {
                 System.out.print("请输入时长 (分钟): ");
-                duration = Integer.parseInt(scanner.nextLine().trim());
+                duration = Integer.parseInt(readLine());
                 if (duration <= 0) {
                     System.out.println("时长必须大于0");
                     continue;
@@ -1265,7 +1284,7 @@ public class ConsoleUI {
         while (true) {
             try {
                 System.out.print("请输入评分 (0-10): ");
-                rating = Double.parseDouble(scanner.nextLine().trim());
+                rating = Double.parseDouble(readLine());
                 if (rating < 0 || rating > 10) {
                     System.out.println("评分必须在0-10之间");
                     continue;
@@ -1277,17 +1296,17 @@ public class ConsoleUI {
         }
         
         System.out.print("请输入类型: ");
-        String genre = scanner.nextLine().trim();
+        String genre = readLine();
         
         System.out.print("请输入简介: ");
-        String description = scanner.nextLine().trim();
+        String description = readLine();
         
         // 输入上映日期（带验证）
         LocalDate releaseTime = null;
         while (true) {
             try {
                 System.out.print("请输入上映日期 (YYYY-MM-DD): ");
-                String dateStr = scanner.nextLine().trim();
+                String dateStr = readLine();
                 releaseTime = LocalDate.parse(dateStr);
                 // 检查日期是否是未来的日期
                 if (releaseTime.isAfter(LocalDate.now().plusYears(1))) {
@@ -1311,7 +1330,7 @@ public class ConsoleUI {
         browseMovies();
         
         System.out.print("请输入要删除的电影ID: ");
-        String movieId = scanner.nextLine().trim();
+        String movieId = readLine();
         
         if (cinemaManager.getMovie(movieId) == null) {
             System.out.println("电影不存在");
@@ -1319,7 +1338,7 @@ public class ConsoleUI {
         }
         
         System.out.print("确认删除电影？(Y/N): ");
-        String confirm = scanner.nextLine().trim();
+        String confirm = readLine();
         
         if (confirm.equalsIgnoreCase("Y")) {
             cinemaManager.removeMovie(movieId);
@@ -1336,7 +1355,7 @@ public class ConsoleUI {
         System.out.println("3. 查看所有放映厅");
         System.out.print("请选择操作: ");
         
-        String choice = scanner.nextLine().trim();
+        String choice = readLine();
         
         switch (choice) {
             case "1":
@@ -1356,7 +1375,7 @@ public class ConsoleUI {
     private void addScreeningRoom() {
         System.out.println("\n----- 添加放映厅 -----");
         System.out.print("请输入放映厅ID: ");
-        String id = scanner.nextLine().trim();
+        String id = readLine();
         
         if (cinemaManager.getScreeningRoom(id) != null) {
             System.out.println("放映厅ID已存在");
@@ -1364,13 +1383,13 @@ public class ConsoleUI {
         }
         
         System.out.print("请输入放映厅名称: ");
-        String name = scanner.nextLine().trim();
+        String name = readLine();
         
         System.out.print("请输入行数: ");
-        int rows = Integer.parseInt(scanner.nextLine().trim());
+        int rows = Integer.parseInt(readLine());
         
         System.out.print("请输入列数: ");
-        int cols = Integer.parseInt(scanner.nextLine().trim());
+        int cols = Integer.parseInt(readLine());
         
         ScreeningRoom room = new ScreeningRoom(id, name, rows, cols);
         cinemaManager.addScreeningRoom(room);
@@ -1383,7 +1402,7 @@ public class ConsoleUI {
         viewScreeningRooms();
         
         System.out.print("请输入要删除的放映厅ID: ");
-        String roomId = scanner.nextLine().trim();
+        String roomId = readLine();
         
         if (cinemaManager.getScreeningRoom(roomId) == null) {
             System.out.println("放映厅不存在");
@@ -1391,7 +1410,7 @@ public class ConsoleUI {
         }
         
         System.out.print("确认删除放映厅？(Y/N): ");
-        String confirm = scanner.nextLine().trim();
+        String confirm = readLine();
         
         if (confirm.equalsIgnoreCase("Y")) {
             cinemaManager.removeScreeningRoom(roomId);
@@ -1447,7 +1466,7 @@ public class ConsoleUI {
         System.out.println("3. 查看所有场次");
         System.out.print("请选择操作: ");
         
-        String choice = scanner.nextLine().trim();
+        String choice = readLine();
         
         switch (choice) {
             case "1":
@@ -1469,7 +1488,7 @@ public class ConsoleUI {
         browseMovies();
         
         System.out.print("请输入电影ID: ");
-        String movieId = scanner.nextLine().trim();
+        String movieId = readLine();
         
         Movie movie = cinemaManager.getMovie(movieId);
         if (movie == null) {
@@ -1480,7 +1499,7 @@ public class ConsoleUI {
         viewScreeningRooms();
         
         System.out.print("请输入放映厅ID: ");
-        String roomId = scanner.nextLine().trim();
+        String roomId = readLine();
         
         ScreeningRoom room = cinemaManager.getScreeningRoom(roomId);
         if (room == null) {
@@ -1489,10 +1508,10 @@ public class ConsoleUI {
         }
         
         System.out.print("请输入开始时间 (YYYY-MM-DD HH:MM): ");
-        LocalDateTime startTime = LocalDateTime.parse(scanner.nextLine().trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        LocalDateTime startTime = LocalDateTime.parse(readLine(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
         
         System.out.print("请输入基础票价: ");
-        double basePrice = Double.parseDouble(scanner.nextLine().trim());
+        double basePrice = Double.parseDouble(readLine());
         
         Show show = new Show("SHOW-" + System.currentTimeMillis(), movie, room, startTime, basePrice);
         cinemaManager.addShow(show);
@@ -1505,7 +1524,7 @@ public class ConsoleUI {
         searchShows();
         
         System.out.print("请输入要删除的场次ID: ");
-        String showId = scanner.nextLine().trim();
+        String showId = readLine();
         
         if (cinemaManager.getShow(showId) == null) {
             System.out.println("场次不存在");
@@ -1513,7 +1532,7 @@ public class ConsoleUI {
         }
         
         System.out.print("确认删除场次？(Y/N): ");
-        String confirm = scanner.nextLine().trim();
+        String confirm = readLine();
         
         if (confirm.equalsIgnoreCase("Y")) {
             cinemaManager.removeShow(showId);
