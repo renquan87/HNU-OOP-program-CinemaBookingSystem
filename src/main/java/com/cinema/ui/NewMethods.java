@@ -148,7 +148,7 @@ public class NewMethods {
             List<Order> userOrders = bookingService.getAllOrders().stream()
                 .filter(order -> order.getUser() != null && order.getUser().getId().equals(userId))
                 .filter(order -> order.getStatus() == Order.OrderStatus.PAID)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
                 
             if (!userOrders.isEmpty()) {
                 System.out.println("警告：该用户有 " + userOrders.size() + " 个已支付订单");

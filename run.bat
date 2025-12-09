@@ -1,7 +1,15 @@
 @echo off
 cd /d "%~dp0"
 echo 正在编译电影院购票系统...
-call mvn compile
+echo 检测Java版本...
+java -version 2>&1 | findstr "17" >nul
+if %ERRORLEVEL% EQU 0 (
+    echo 检测到Java 17，使用Java 17编译...
+    call mvn compile -Djava.version=17
+) else (
+    echo 使用默认Java版本编译...
+    call mvn compile
+)
 
 if %ERRORLEVEL% NEQ 0 (
     echo 编译失败！
