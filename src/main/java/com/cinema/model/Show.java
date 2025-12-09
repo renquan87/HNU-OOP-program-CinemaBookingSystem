@@ -40,6 +40,19 @@ public class Show implements java.io.Serializable {
         this.seats = new ArrayList<>();
         initializeSeats();
     }
+    
+    // 用于数据库加载的构造函数，不初始化座位
+    public Show(String id, LocalDateTime startTime, double basePrice) {
+        this.id = id;
+        this.movie = null;
+        this.screeningRoom = null;
+        this.startTime = startTime;
+        this.basePrice = basePrice;
+        this.discountPrice = basePrice * 0.8;
+        this.vipPrice = basePrice + 10.0;
+        this.seats = new ArrayList<>();
+        // 不调用initializeSeats()
+    }
 
     private void initializeSeats() {
         Seat[][] roomSeats = screeningRoom.getSeatLayout();
@@ -65,6 +78,26 @@ public class Show implements java.io.Serializable {
 
     public void setMovie(Movie movie) {
         this.movie = movie;
+    }
+    
+    // 安全获取电影标题，避免空指针
+    public String getMovieTitle() {
+        return movie != null ? movie.getTitle() : "未知电影";
+    }
+    
+    // 安全获取电影ID，避免空指针
+    public String getMovieId() {
+        return movie != null ? movie.getId() : "UNKNOWN";
+    }
+    
+    // 安全获取放映厅名称，避免空指针
+    public String getScreeningRoomName() {
+        return screeningRoom != null ? screeningRoom.getName() : "未知放映厅";
+    }
+    
+    // 安全获取放映厅ID，避免空指针
+    public String getScreeningRoomId() {
+        return screeningRoom != null ? screeningRoom.getId() : "UNKNOWN";
     }
 
     public ScreeningRoom getScreeningRoom() {

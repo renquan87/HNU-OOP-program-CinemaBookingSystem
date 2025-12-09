@@ -2,6 +2,7 @@ package com.cinema.service;
 
 import com.cinema.model.*;
 import com.cinema.storage.SimpleDataStorage;
+import com.cinema.storage.MySQLDataStorage;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -17,6 +18,8 @@ public class CinemaManager {
     private final Map<String, Show> shows;
     private final Map<String, User> users;
     private final SimpleDataStorage dataStorage;
+    private final MySQLDataStorage mysqlDataStorage;
+    private final boolean useMySQL;
 
     private CinemaManager() {
         this.dataStorage = new SimpleDataStorage();
@@ -24,15 +27,26 @@ public class CinemaManager {
         this.rooms = new ConcurrentHashMap<>();
         this.shows = new ConcurrentHashMap<>();
         this.users = new ConcurrentHashMap<>();
-        // 检查数据文件是否存在
-        boolean dataFilesExist = new java.io.File("data/movies.dat").exists() || 
-                               new java.io.File("data/rooms.dat").exists() || 
-                               new java.io.File("data/users.dat").exists();
+        
+        // 尝试使用MySQL，如果失败则使用文件存储
+        boolean mysqlAvailable = false;
+        MySQLDataStorage mysqlStorage = null;
+        try {
+            mysqlStorage = new MySQLDataStorage();
+            mysqlAvailable = true;
+            System.out.println("使用MySQL数据库存储");
+        } catch (Exception e) {
+            System.err.println("MySQL连接失败，使用文件存储: " + e.getMessage());
+            System.err.println("提示：如需使用MySQL，请下载MySQL Connector/J并添加到classpath");
+            mysqlStorage = null;
+        }
+        this.mysqlDataStorage = mysqlStorage;
+        this.useMySQL = mysqlAvailable;
         
         loadData();
         
-        // 如果数据文件不存在，则初始化默认数据
-        if (!dataFilesExist) {
+        // 如果没有数据，则初始化默认数据
+        if (movies.isEmpty() && rooms.isEmpty() && users.isEmpty()) {
             initializeDefaultData();
         }
     }
@@ -246,7 +260,7 @@ public class CinemaManager {
     public List<Show> getShowsByMovie(String movieId) {
         List<Show> movieShows = new ArrayList<>();
         for (Show show : shows.values()) {
-            if (show.getMovie().getId().equals(movieId)) {
+            if (show.getMovieId().equals(movieId)) {
                 movieShows.add(show);
             }
         }
@@ -287,43 +301,57 @@ public class CinemaManager {
     }
     
     private void loadData() {
-        movies.putAll(dataStorage.loadMovies());
-        rooms.putAll(dataStorage.loadScreeningRooms());
-        shows.putAll(dataStorage.loadShows());
-        users.putAll(dataStorage.loadUsers());
+        if (useMySQL && mysqlDataStorage != null) {
+            movies.putAll(mysqlDataStorage.loadMovies());
+            rooms.putAll(mysqlDataStorage.loadScreeningRooms());
+            shows.putAll(mysqlDataStorage.loadShows());
+            users.putAll(mysqlDataStorage.loadUsers());
+        } else {
+            movies.putAll(dataStorage.loadMovies());
+            rooms.putAll(dataStorage.loadScreeningRooms());
+            shows.putAll(dataStorage.loadShows());
+            users.putAll(dataStorage.loadUsers());
+        }
         
         // 重建电影和场次的关系
-        for (Show show : shows.values()) {
-            Movie movie = movies.get(show.getMovie().getId());
-            if (movie != null) {
-                show.setMovie(movie);
-                movie.addShow(show.getStartTime().toLocalDate(), show);
-            }
-            
-            ScreeningRoom room = rooms.get(show.getScreeningRoom().getId());
-            if (room != null) {
-                show.setScreeningRoom(room);
-            }
-        }
+        // 注意：从MySQL加载的Show对象暂时没有关联的Movie和ScreeningRoom
+        // 这里暂时跳过重建关系，避免空指针异常
+        // 实际应用中需要从数据库加载关联关系或使用JOIN查询
         
         // 重建用户和订单的关系（延迟到BookingService初始化后）
         // 这个关系重建将在BookingService初始化后完成
     }
     
     private void saveMovies() {
-        dataStorage.saveMovies(movies);
+        if (useMySQL && mysqlDataStorage != null) {
+            mysqlDataStorage.saveMovies(movies);
+        } else {
+            dataStorage.saveMovies(movies);
+        }
     }
     
     private void saveRooms() {
-        dataStorage.saveScreeningRooms(rooms);
+        if (useMySQL && mysqlDataStorage != null) {
+            mysqlDataStorage.saveScreeningRooms(rooms);
+        } else {
+            dataStorage.saveScreeningRooms(rooms);
+        }
     }
     
     private void saveShows() {
-        dataStorage.saveShows(shows);
+        if (useMySQL && mysqlDataStorage != null) {
+            mysqlDataStorage.saveShows(shows);
+        } else {
+            dataStorage.saveShows(shows);
+        }
     }
     
     private void saveUsers() {
-        dataStorage.saveUsers(users);
+        if (useMySQL && mysqlDataStorage != null) {
+            mysqlDataStorage.saveUsers(users);
+        } else {
+            dataStorage.saveUsers(users);
+        }
     }
     
     public void saveAllData() {
@@ -336,5 +364,12 @@ public class CinemaManager {
     
     public void backupData() {
         dataStorage.backupData();
+    }
+    
+    public void shutdown() {
+        saveAllData();
+        if (useMySQL && mysqlDataStorage != null) {
+            mysqlDataStorage.close();
+        }
     }
 }

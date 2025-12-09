@@ -39,6 +39,14 @@ public class Main {
         } catch (Exception e) {
             System.err.println("系统启动失败: " + e.getMessage());
             e.printStackTrace();
+        } finally {
+            // 确保程序退出时关闭数据库连接
+            try {
+                CinemaManager cinemaManager = CinemaManager.getInstance();
+                cinemaManager.shutdown();
+            } catch (Exception e) {
+                System.err.println("关闭数据库连接时出错: " + e.getMessage());
+            }
         }
     }
 }

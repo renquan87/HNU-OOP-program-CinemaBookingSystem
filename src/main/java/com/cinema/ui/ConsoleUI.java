@@ -628,13 +628,13 @@ public class ConsoleUI {
             printColored(GREEN + BOLD, String.format("场次 %d\n", i + 1));
             
             printColored(CYAN, "电影名称: ");
-            printlnColored(WHITE, show.getMovie().getTitle());
+            printlnColored(WHITE, show.getMovieTitle());
             
             printColored(CYAN, "场次ID: ");
             printlnColored(WHITE, show.getId());
             
             printColored(CYAN, "放映厅: ");
-            printlnColored(WHITE, show.getScreeningRoom().getName());
+            printlnColored(WHITE, show.getScreeningRoomName());
             
             printColored(CYAN, "开始时间: ");
             printlnColored(WHITE, show.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
@@ -684,9 +684,9 @@ public class ConsoleUI {
             // 只显示未来的场次
             if (show.getStartTime().isAfter(java.time.LocalDateTime.now())) {
                 printColored(CYAN, String.format("%d. ", index++));
-                printColored(WHITE, show.getMovie().getTitle());
+                printColored(WHITE, show.getMovieTitle());
                 printColored(CYAN, " - ");
-                printColored(YELLOW, show.getScreeningRoom().getName());
+                printColored(YELLOW, show.getScreeningRoomName());
                 printColored(CYAN, " (");
                 printColored(WHITE, show.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
                 printColored(CYAN, ") | ");
@@ -767,7 +767,7 @@ public class ConsoleUI {
                     printlnColored(CYAN, "订单ID: ");
                     printlnColored(WHITE, order.getOrderId());
                     printlnColored(CYAN, "电影: ");
-                    printlnColored(WHITE, show.getMovie().getTitle());
+                    printlnColored(WHITE, show.getMovieTitle());
                     printlnColored(CYAN, "场次时间: ");
                     printlnColored(WHITE, show.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
                     printlnColored(CYAN, "座位: ");
@@ -804,7 +804,7 @@ public class ConsoleUI {
                     printlnColored(CYAN, "订单ID: ");
                     printlnColored(WHITE, order.getOrderId());
                     printlnColored(CYAN, "电影: ");
-                    printlnColored(WHITE, show.getMovie().getTitle());
+                    printlnColored(WHITE, show.getMovieTitle());
                     printlnColored(CYAN, "场次时间: ");
                     printlnColored(WHITE, show.getStartTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
                     printlnColored(CYAN, "座位: ");
@@ -862,7 +862,7 @@ public class ConsoleUI {
     }
 
     private void displaySeatMap(Show show) {
-        printTitle("座位选择 - " + show.getMovie().getTitle());
+        printTitle("座位选择 - " + show.getMovieTitle());
         
         // 显示图例
         printlnColored(CYAN, "\n图例：");

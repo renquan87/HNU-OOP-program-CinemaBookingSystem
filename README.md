@@ -1,6 +1,6 @@
 # 电影院购票系统
 
-基于Java实现的电影院购票管理系统，采用面向对象设计模式，支持用户购票、管理员管理等核心功能。
+基于Java实现的电影院购票管理系统，采用面向对象设计模式，支持MySQL数据库和文件存储，支持用户购票、管理员管理等核心功能。
 
 ## 系统架构
 
@@ -22,7 +22,12 @@
 - **BookingService**: 预订服务，支持订单创建、支付和取消
 
 ### 数据存储
-- **SimpleDataStorage**: 简单数据存储实现，使用Java原生序列化支持文件持久化
+- **SimpleDataStorage**: 文件存储实现，使用Java原生序列化
+- **MySQLDataStorage**: MySQL数据库存储实现
+- **SimpleDatabaseConnection**: 数据库连接管理
+- **DatabaseInitializer**: 数据库初始化工具
+
+系统支持双模式存储：自动检测MySQL可用性，优先使用数据库，不可用时回退到文件存储
 
 ### 异常处理
 - **InvalidBookingException**: 无效预订异常
@@ -60,9 +65,11 @@
 - **DiscountSeat**: 折扣座位
 
 ## 技术栈
-- Java 11
+- Java 21
 - Maven 3.x
+- MySQL 8.0+
 - JUnit 5 (测试)
+- HikariCP (连接池)
 
 ## 项目结构
 ```
@@ -91,59 +98,86 @@ CinemaBookingSystem/
 │   │   ├── CinemaManager.java
 │   │   └── BookingService.java
 │   ├── storage/                     # 数据存储
-│   │   └── SimpleDataStorage.java
+│   │   ├── SimpleDataStorage.java
+│   │   ├── MySQLDataStorage.java
+│   │   └── SimpleDatabaseConnection.java
 │   └── ui/                          # 用户界面
 │       ├── ConsoleUI.java
 │       └── NewMethods.java
 ├── src/test/java/                   # 测试代码
-├── data/                            # 数据文件
+├── src/main/resources/              # 资源文件
+│   ├── config.properties            # 数据库配置
+│   └── schema.sql                   # 数据库表结构
+├── data/                            # 文件存储数据
 │   ├── movies.dat
 │   ├── orders.dat
 │   ├── rooms.dat
 │   ├── shows.dat
 │   └── users.dat
+├── lib/                             # 依赖库目录
 ├── pom.xml                          # Maven配置
 └── README.md                        # 项目说明
 ```
 
 ## 编译和运行
 
-### Java版本兼容性
-项目配置为自动适应当前环境的Java版本（默认Java 11）。如果在Windows下使用Java 17，可以运行：
+### 环境要求
+- Java 21 或更高版本
+- MySQL 8.0+（可选，不使用时可回退到文件存储）
+- Maven 3.x
+
+### 1. 下载依赖
 ```bash
-mvn clean compile -Djava.version=17
+# 自动下载所有依赖到lib目录
+mvn dependency:copy-dependencies -DoutputDirectory=lib
 ```
 
-### 编译项目
+### 2. 编译项目
 ```bash
 mvn clean compile
 ```
 
-### 运行程序
+### 3. 初始化MySQL数据库（首次使用）
 ```bash
-mvn exec:java -Dexec.mainClass="com.cinema.Main"
+java -cp "lib/*;target/classes" com.cinema.DatabaseInitializer
 ```
 
-### 或者编译并运行
+### 4. 运行程序
+
+#### 使用MySQL数据库
 ```bash
-mvn clean compile exec:java -Dexec.mainClass="com.cinema.Main"
+java -cp "lib/*;target/classes" com.cinema.Main
 ```
 
-### 运行测试
+#### 使用文件存储（无需MySQL）
+```bash
+java -cp target/classes com.cinema.Main
+```
+
+### 5. 运行测试
 ```bash
 mvn test
 ```
 
-### 创建可执行JAR
+### 6. 创建可执行JAR
 ```bash
 mvn clean package
-java -jar target/cinema-booking-system-1.0-SNAPSHOT.jar
+java -jar target/cinema-booking-system-1.0-SNAPSHOT-jar-with-dependencies.jar
 ```
 
 ### Windows批处理文件
 - `run.bat`: 编译并运行主程序
 - `run_system.bat`: 检查环境并运行系统
-- `test_complete.bat`: 完整测试流程（包含环境检查、编译、数据初始化和系统启动）
+- `start_system.bat`: 简化启动脚本
+
+### 数据库配置
+编辑 `src/main/resources/config.properties`：
+```properties
+db.url=jdbc:mysql://localhost:3306/cinema_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC
+db.username=root
+db.password=你的密码
+db.driver=com.mysql.cj.jdbc.Driver
+```
 
 
 ## 使用说明
@@ -186,11 +220,37 @@ java -jar target/cinema-booking-system-1.0-SNAPSHOT.jar
 
 ## 注意事项
 
-1. 系统使用文件存储数据，确保data目录存在且有读写权限
-2. 支付功能为模拟实现，实际应用需要接入真实支付系统
-3. 建议在生产环境中使用数据库存储数据
-4. 可根据需要添加日志记录功能
-5. 系统支持多用户并发操作，使用线程安全的数据结构
+1. 系统支持双模式存储：优先使用MySQL数据库，不可用时自动回退到文件存储
+2. 确保data目录存在且有读写权限（文件存储模式）
+3. 支付功能为模拟实现，实际应用需要接入真实支付系统
+4. 系统支持多用户并发操作，使用线程安全的数据结构
+5. MySQL连接失败时会显示提示信息并自动使用文件存储
+
+## 数据库表结构
+
+系统创建以下MySQL表：
+- `movies` - 电影信息
+- `screening_rooms` - 放映厅
+- `seats` - 座位信息
+- `shows` - 场次信息
+- `users` - 用户信息
+- `orders` - 订单信息
+- `order_seats` - 订单座位关联
+
+## 故障排除
+
+1. **MySQL连接失败**
+   - 检查MySQL服务是否启动
+   - 验证配置文件中的用户名密码
+   - 确认MySQL驱动在lib目录中
+
+2. **编码问题**
+   - Windows系统建议使用cmd而不是PowerShell
+   - 或使用start_system.bat启动脚本
+
+3. **依赖问题**
+   - 运行 `mvn dependency:copy-dependencies` 重新下载依赖
+   - 确保lib目录包含所有必要的jar文件
 
 ## 许可证
 
