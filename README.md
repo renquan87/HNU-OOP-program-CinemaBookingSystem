@@ -491,7 +491,7 @@ java -cp "lib/*;target/classes" com.cinema.DatabaseInitializer
 java -cp "lib/*;target/classes" com.cinema.Main
 ```
 我用的是vscode，集成终端。
-IDEA可能有终端中文乱码问题。
+IDEA可能有终端中文乱码问题，可搜教程解决。
 用MySQL Workbench或者Command Line可查看数据库存储情况。
 ### 1. 环境搭建
 
