@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS screening_rooms (
 CREATE TABLE IF NOT EXISTS seats (
     id VARCHAR(50) PRIMARY KEY,
     room_id VARCHAR(50) NOT NULL,
-    row_number INT NOT NULL,
-    column_number INT NOT NULL,
+    seat_row INT NOT NULL,
+    seat_column INT NOT NULL,
     seat_type VARCHAR(20) NOT NULL, -- 'REGULAR', 'VIP', 'DISCOUNT'
     price_multiplier DOUBLE NOT NULL DEFAULT 1.0,
     is_available BOOLEAN DEFAULT TRUE,

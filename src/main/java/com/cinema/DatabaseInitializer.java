@@ -52,6 +52,9 @@ public class DatabaseInitializer {
         try (Connection conn = SimpleDatabaseConnection.getConnection();
              Statement stmt = conn.createStatement()) {
             
+            // 先删除所有表（按依赖关系倒序）
+            dropTablesIfExists(stmt);
+            
             // 读取SQL脚本文件
             InputStream inputStream = DatabaseInitializer.class.getClassLoader().getResourceAsStream(scriptFile);
             if (inputStream == null) {
@@ -86,6 +89,27 @@ public class DatabaseInitializer {
             
         } catch (Exception e) {
             throw new RuntimeException("执行SQL脚本失败", e);
+        }
+    }
+    
+    private static void dropTablesIfExists(Statement stmt) throws SQLException {
+        String[] tables = {
+            "order_seats",
+            "orders", 
+            "users",
+            "shows",
+            "seats",
+            "screening_rooms",
+            "movies"
+        };
+        
+        for (String table : tables) {
+            try {
+                stmt.execute("DROP TABLE IF EXISTS " + table);
+                System.out.println("删除表: " + table);
+            } catch (Exception e) {
+                // 忽略删除失败的情况
+            }
         }
     }
 }

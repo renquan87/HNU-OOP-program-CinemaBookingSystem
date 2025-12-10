@@ -483,7 +483,16 @@ CinemaBookingSystem/
 ```
 
 ## 开发指南
-
+### *一步到位*
+```shell
+mvn dependency:copy-dependencies -DoutputDirectory=lib
+mvn clean compile
+java -cp "lib/*;target/classes" com.cinema.DatabaseInitializer
+java -cp "lib/*;target/classes" com.cinema.Main
+```
+我用的是vscode，集成终端。
+IDEA可能有终端中文乱码问题。
+用MySQL Workbench或者Command Line可查看数据库存储情况。
 ### 1. 环境搭建
 
 #### 安装Java 21
@@ -514,6 +523,7 @@ mvn -version
 
 ### 2. 项目初始化
 
+
 #### 克隆项目
 ```bash
 git clone https://github.com/renquan87/HNU-OOP-program2-CinemaBookingSystem.git
@@ -542,7 +552,7 @@ java -cp "lib/*;target/classes" com.cinema.DatabaseInitializer
 #### 方式1：使用批处理文件（推荐）
 ```bash
 # Windows
-run.bat
+.\run.bat
 ```
 
 #### 方式2：命令行运行
