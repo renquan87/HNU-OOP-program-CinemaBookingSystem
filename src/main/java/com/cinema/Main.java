@@ -3,6 +3,7 @@ package com.cinema;
 import com.cinema.ui.ConsoleUI;
 import com.cinema.service.BookingService;
 import com.cinema.service.CinemaManager;
+import com.cinema.storage.SimpleDatabaseConnection;
 import com.cinema.strategy.StandardPricing;
 import java.io.Console;
 import java.nio.charset.Charset;
@@ -26,6 +27,9 @@ public class Main {
                     // 忽略设置失败
                 }
             }
+            
+            // 将命令行参数传递给SimpleDatabaseConnection（用于密码加载）
+            SimpleDatabaseConnection.setCommandLineArgs(args);
             
             // Initialize BookingService first
             BookingService bookingService = BookingService.getInstance(new StandardPricing());

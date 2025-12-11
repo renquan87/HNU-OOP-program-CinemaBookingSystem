@@ -7,15 +7,24 @@ import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Properties;
 
 public class DatabaseInitializer {
+    private static String dbPassword;
+    
     public static void main(String[] args) {
         try {
             System.out.println("开始初始化数据库...");
             
+            // 加载数据库密码：首先尝试从命令行参数获取，然后从配置文件获取
+            dbPassword = loadPassword(args);
+            
+            // 将命令行参数传递给SimpleDatabaseConnection（用于密码加载）
+            SimpleDatabaseConnection.setCommandLineArgs(args);
+            
             // 先尝试连接到MySQL服务器（不指定数据库）
             String url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
-            try (java.sql.Connection conn = java.sql.DriverManager.getConnection(url, "root", "123421")) {
+            try (java.sql.Connection conn = java.sql.DriverManager.getConnection(url, "root", dbPassword)) {
                 System.out.println("MySQL服务器连接成功");
                 
                 // 创建数据库
@@ -111,5 +120,38 @@ public class DatabaseInitializer {
                 // 忽略删除失败的情况
             }
         }
+    }
+    
+    /**
+     * 加载数据库密码
+     * 1. 首先尝试从命令行参数获取
+     * 2. 如果失败，尝试从config.properties中加载
+     */
+    private static String loadPassword(String[] args) {
+        // 1. 首先尝试从命令行参数获取
+        if (args != null && args.length > 0 && args[0] != null && !args[0].trim().isEmpty()) {
+            System.out.println("从命令行参数加载数据库密码");
+            return args[0].trim();
+        }
+        
+        // 2. 如果失败，尝试从config.properties中加载
+        try {
+            Properties props = new Properties();
+            InputStream input = DatabaseInitializer.class.getClassLoader().getResourceAsStream("config.properties");
+            if (input != null) {
+                props.load(input);
+                String password = props.getProperty("db.password");
+                if (password != null && !password.trim().isEmpty()) {
+                    System.out.println("从config.properties加载数据库密码");
+                    return password.trim();
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("读取config.properties失败: " + e.getMessage());
+        }
+        
+        // 如果都失败，使用默认值
+        System.err.println("警告: 未找到数据库密码配置，使用默认密码");
+        return "123421";
     }
 }
