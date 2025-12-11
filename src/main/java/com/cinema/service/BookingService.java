@@ -2,7 +2,7 @@ package com.cinema.service;
 
 import com.cinema.model.*;
 import com.cinema.strategy.PricingStrategy;
-import com.cinema.storage.SimpleDataStorage;
+import com.cinema.storage.MySQLDataStorage;
 import com.cinema.exception.*;
 
 import java.util.List;
@@ -15,12 +15,26 @@ public class BookingService {
     private static BookingService instance;
     private final ConcurrentMap<String, Order> orders;
     private final PricingStrategy pricingStrategy;
-    private final SimpleDataStorage dataStorage;
+    private final MySQLDataStorage mysqlDataStorage;
+    private final boolean useMySQL;
 
     private BookingService(PricingStrategy pricingStrategy) {
-        this.dataStorage = new SimpleDataStorage();
         this.orders = new ConcurrentHashMap<>();
         this.pricingStrategy = pricingStrategy;
+        
+        // 强制使用MySQL存储
+        MySQLDataStorage mysqlStorage = null;
+        try {
+            mysqlStorage = new MySQLDataStorage();
+            System.out.println("✓ BookingService使用MySQL数据库存储");
+        } catch (Exception e) {
+            System.err.println("✗ BookingService MySQL连接失败: " + e.getMessage());
+            System.err.println("错误：系统必须使用MySQL数据库存储");
+            throw new RuntimeException("MySQL连接失败，无法初始化订单服务", e);
+        }
+        this.mysqlDataStorage = mysqlStorage;
+        this.useMySQL = true; // 强制使用MySQL
+        
         loadOrders();
         rebuildUserOrderRelations();
     }
@@ -106,6 +120,10 @@ public class BookingService {
         order.setUser(user);
         user.addOrder(order);
         saveOrder(order);
+        
+        // 保存Show对象以同步座位状态
+        CinemaManager cinemaManager = CinemaManager.getInstance();
+        cinemaManager.saveShows();
 
         return order;
     }
@@ -137,6 +155,10 @@ public class BookingService {
             }
             
             saveOrder(order);
+            // 保存Show对象以同步座位状态
+            CinemaManager cinemaManager = CinemaManager.getInstance();
+            cinemaManager.saveShows();
+            System.out.println("订单支付成功并已保存到数据库");
         } else {
             // Unlock seats if payment fails
             for (Seat seat : order.getSeats()) {
@@ -167,6 +189,10 @@ public class BookingService {
                     seat.unlock();
                 }
                 saveOrder(order);
+                // 保存Show对象以同步座位状态
+                CinemaManager cinemaManager = CinemaManager.getInstance();
+                cinemaManager.saveShows();
+                System.out.println("订单退款成功并已保存到数据库");
             } else {
                 throw new InvalidBookingException("退款失败", "订单号: " + order.getOrderId());
             }
@@ -177,6 +203,10 @@ public class BookingService {
                 seat.unlock();
             }
             saveOrder(order);
+            // 保存Show对象以同步座位状态
+            CinemaManager cinemaManager = CinemaManager.getInstance();
+            cinemaManager.saveShows();
+            System.out.println("订单取消成功并已保存到数据库");
         } else if (order.getStatus() == Order.OrderStatus.CANCELLED) {
             throw new InvalidBookingException("订单已经取消", "订单号: " + order.getOrderId());
         } else {
@@ -192,11 +222,34 @@ public class BookingService {
     public List<Order> getAllOrders() {
         return new java.util.ArrayList<>(orders.values());
     }
+    
+    public List<Order> getOrdersByUser(User user) {
+        if (user == null) {
+            return new java.util.ArrayList<>();
+        }
+        List<Order> userOrders = new java.util.ArrayList<>();
+        for (Order order : orders.values()) {
+            if (order.getUser() != null && order.getUser().getId().equals(user.getId())) {
+                userOrders.add(order);
+            }
+        }
+        return userOrders;
+    }
+    
+    // 刷新订单数据，从数据库重新加载
+    public void refreshOrders() {
+        System.out.println("正在刷新订单数据...");
+        orders.clear();
+        orders.putAll(mysqlDataStorage.loadOrders());
+        rebuildUserOrderRelations();
+        System.out.println("✓ 订单数据刷新完成，共 " + orders.size() + " 个订单");
+    }
 
     public void updateOrder(Order order) {
         if (order != null && orders.containsKey(order.getOrderId())) {
             orders.put(order.getOrderId(), order);
             saveOrder(order);
+            System.out.println("订单更新成功并已保存到数据库");
         }
     }
 
@@ -221,15 +274,21 @@ public class BookingService {
     }
     
     private void loadOrders() {
-        orders.putAll(dataStorage.loadOrders());
+        // 只从MySQL加载订单
+        System.out.println("正在从MySQL数据库加载订单数据...");
+        orders.putAll(mysqlDataStorage.loadOrders());
+        System.out.println("✓ 订单数据加载完成，共 " + orders.size() + " 个订单");
     }
     
     private void saveOrder(Order order) {
-        dataStorage.saveOrders(orders);
+        // 只保存到MySQL数据库
+        mysqlDataStorage.saveOrders(orders);
     }
     
     public void saveOrders() {
-        dataStorage.saveOrders(orders);
+        // 只保存到MySQL数据库
+        mysqlDataStorage.saveOrders(orders);
+        System.out.println("✓ 订单数据已保存到MySQL数据库");
     }
     
     private void rebuildUserOrderRelations() {
@@ -296,6 +355,11 @@ public class BookingService {
         }
         
         saveOrders();
+        // 保存Show对象以同步座位状态
+        CinemaManager cinemaManager = CinemaManager.getInstance();
+        cinemaManager.saveShows();
+        System.out.println("订单预订成功并已保存到数据库");
+        
         return order;
     }
     
@@ -329,6 +393,10 @@ public class BookingService {
         
         if (!expiredOrders.isEmpty()) {
             saveOrders();
+            // 保存Show对象以同步座位状态
+            CinemaManager cinemaManager = CinemaManager.getInstance();
+            cinemaManager.saveShows();
+            System.out.println("过期订单处理完成，已保存到数据库");
         }
     }
     
@@ -355,5 +423,16 @@ public class BookingService {
         }
         
         saveOrders();
+        // 保存Show对象以同步座位状态
+        CinemaManager cinemaManager = CinemaManager.getInstance();
+        cinemaManager.saveShows();
+        System.out.println("预订订单支付成功并已保存到数据库");
+    }
+    
+    public void shutdown() {
+        saveOrders();
+        if (useMySQL && mysqlDataStorage != null) {
+            mysqlDataStorage.close();
+        }
     }
 }

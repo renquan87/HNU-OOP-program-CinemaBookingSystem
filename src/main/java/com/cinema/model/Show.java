@@ -58,8 +58,19 @@ public class Show implements java.io.Serializable {
         Seat[][] roomSeats = screeningRoom.getSeatLayout();
         for (int row = 0; row < roomSeats.length; row++) {
             for (int col = 0; col < roomSeats[row].length; col++) {
-                // 直接使用放映厅中的座位实例，保持引用关系
-                seats.add(roomSeats[row][col]);
+                // 创建新的座位实例，确保价格正确
+                Seat roomSeat = roomSeats[row][col];
+                Seat showSeat;
+                
+                if (roomSeat instanceof VIPSeat) {
+                    showSeat = new VIPSeat(roomSeat.getRow(), roomSeat.getCol(), vipPrice);
+                } else if (roomSeat instanceof DiscountSeat) {
+                    showSeat = new DiscountSeat(roomSeat.getRow(), roomSeat.getCol(), discountPrice);
+                } else {
+                    showSeat = new RegularSeat(roomSeat.getRow(), roomSeat.getCol(), basePrice);
+                }
+                
+                seats.add(showSeat);
             }
         }
     }

@@ -33,34 +33,60 @@ public class MySQLDataStorage {
     // ========== 电影相关方法 ==========
     
     public void saveMovies(Map<String, Movie> movies) {
-        String sql = "INSERT INTO movies (id, title, director, actors, duration, rating, genre, description) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
-                     "ON DUPLICATE KEY UPDATE title = VALUES(title), director = VALUES(director), " +
-                     "actors = VALUES(actors), duration = VALUES(duration), rating = VALUES(rating), " +
-                     "genre = VALUES(genre), description = VALUES(description)";
-        
-        try (Connection conn = SimpleDatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
+        try (Connection conn = SimpleDatabaseConnection.getConnection()) {
             conn.setAutoCommit(false);
             
-            for (Movie movie : movies.values()) {
-                pstmt.setString(1, movie.getId());
-                pstmt.setString(2, movie.getTitle());
-                pstmt.setString(3, movie.getDirector());
-                pstmt.setString(4, String.join(",", movie.getActors()));
-                pstmt.setInt(5, movie.getDuration());
-                pstmt.setDouble(6, movie.getRating());
-                pstmt.setString(7, movie.getGenre().toString());
-                pstmt.setString(8, movie.getDescription());
-                pstmt.addBatch();
+            // 先获取数据库中所有的电影ID
+            Set<String> dbMovieIds = new HashSet<>();
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT id FROM movies")) {
+                while (rs.next()) {
+                    dbMovieIds.add(rs.getString("id"));
+                }
             }
             
-            pstmt.executeBatch();
+            // 删除数据库中存在但内存中不存在的电影
+            Set<String> movieIdsToDelete = new HashSet<>(dbMovieIds);
+            movieIdsToDelete.removeAll(movies.keySet());
+            
+            if (!movieIdsToDelete.isEmpty()) {
+                String deleteSql = "DELETE FROM movies WHERE id = ?";
+                try (PreparedStatement deletePstmt = conn.prepareStatement(deleteSql)) {
+                    for (String movieId : movieIdsToDelete) {
+                        deletePstmt.setString(1, movieId);
+                        deletePstmt.addBatch();
+                    }
+                    deletePstmt.executeBatch();
+                }
+            }
+            
+            // 插入或更新内存中的电影
+            String sql = "INSERT INTO movies (id, title, director, actors, duration, rating, genre, description) " +
+                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
+                         "ON DUPLICATE KEY UPDATE title = VALUES(title), director = VALUES(director), " +
+                         "actors = VALUES(actors), duration = VALUES(duration), rating = VALUES(rating), " +
+                         "genre = VALUES(genre), description = VALUES(description)";
+            
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                for (Movie movie : movies.values()) {
+                    pstmt.setString(1, movie.getId());
+                    pstmt.setString(2, movie.getTitle());
+                    pstmt.setString(3, movie.getDirector());
+                    pstmt.setString(4, String.join(",", movie.getActors()));
+                    pstmt.setInt(5, movie.getDuration());
+                    pstmt.setDouble(6, movie.getRating());
+                    pstmt.setString(7, movie.getGenre().toString());
+                    pstmt.setString(8, movie.getDescription());
+                    pstmt.addBatch();
+                }
+                pstmt.executeBatch();
+            }
+            
             conn.commit();
             
         } catch (SQLException e) {
             System.err.println("保存电影数据失败: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -150,33 +176,59 @@ public class MySQLDataStorage {
     // ========== 场次相关方法 ==========
     
     public void saveShows(Map<String, Show> shows) {
-        String sql = "INSERT INTO shows (id, movie_id, room_id, start_time, end_time, base_price, status) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?) " +
-                     "ON DUPLICATE KEY UPDATE movie_id = VALUES(movie_id), room_id = VALUES(room_id), " +
-                     "start_time = VALUES(start_time), end_time = VALUES(end_time), " +
-                     "base_price = VALUES(base_price), status = VALUES(status)";
-        
-        try (Connection conn = SimpleDatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
+        try (Connection conn = SimpleDatabaseConnection.getConnection()) {
             conn.setAutoCommit(false);
             
-            for (Show show : shows.values()) {
-                pstmt.setString(1, show.getId());
-                pstmt.setString(2, show.getMovie().getId());
-                pstmt.setString(3, show.getScreeningRoom().getId());
-                pstmt.setString(4, show.getStartTime().format(DATE_FORMATTER));
-                pstmt.setString(5, show.getStartTime().plusMinutes(show.getMovie().getDuration()).format(DATE_FORMATTER)); // 计算结束时间
-                pstmt.setDouble(6, show.getBasePrice());
-                pstmt.setString(7, "SCHEDULED"); // 默认状态
-                pstmt.addBatch();
+            // 先获取数据库中所有的场次ID
+            Set<String> dbShowIds = new HashSet<>();
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT id FROM shows")) {
+                while (rs.next()) {
+                    dbShowIds.add(rs.getString("id"));
+                }
             }
             
-            pstmt.executeBatch();
+            // 删除数据库中存在但内存中不存在的场次
+            Set<String> showIdsToDelete = new HashSet<>(dbShowIds);
+            showIdsToDelete.removeAll(shows.keySet());
+            
+            if (!showIdsToDelete.isEmpty()) {
+                String deleteSql = "DELETE FROM shows WHERE id = ?";
+                try (PreparedStatement deletePstmt = conn.prepareStatement(deleteSql)) {
+                    for (String showId : showIdsToDelete) {
+                        deletePstmt.setString(1, showId);
+                        deletePstmt.addBatch();
+                    }
+                    deletePstmt.executeBatch();
+                }
+            }
+            
+            // 插入或更新内存中的场次
+            String sql = "INSERT INTO shows (id, movie_id, room_id, start_time, end_time, base_price, status) " +
+                         "VALUES (?, ?, ?, ?, ?, ?, ?) " +
+                         "ON DUPLICATE KEY UPDATE movie_id = VALUES(movie_id), room_id = VALUES(room_id), " +
+                         "start_time = VALUES(start_time), end_time = VALUES(end_time), " +
+                         "base_price = VALUES(base_price), status = VALUES(status)";
+            
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                for (Show show : shows.values()) {
+                    pstmt.setString(1, show.getId());
+                    pstmt.setString(2, show.getMovie().getId());
+                    pstmt.setString(3, show.getScreeningRoom().getId());
+                    pstmt.setString(4, show.getStartTime().format(DATE_FORMATTER));
+                    pstmt.setString(5, show.getStartTime().plusMinutes(show.getMovie().getDuration()).format(DATE_FORMATTER)); // 计算结束时间
+                    pstmt.setDouble(6, show.getBasePrice());
+                    pstmt.setString(7, "SCHEDULED"); // 默认状态
+                    pstmt.addBatch();
+                }
+                pstmt.executeBatch();
+            }
+            
             conn.commit();
             
         } catch (SQLException e) {
             System.err.println("保存场次数据失败: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -312,37 +364,103 @@ public class MySQLDataStorage {
     // ========== 订单相关方法 ==========
     
     public void saveOrders(Map<String, Order> orders) {
-        String sql = "INSERT INTO orders (order_id, user_id, show_id, total_amount, status, payment_status) " +
-                     "VALUES (?, ?, ?, ?, ?, ?) " +
-                     "ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), show_id = VALUES(show_id), " +
-                     "total_amount = VALUES(total_amount), status = VALUES(status), " +
-                     "payment_status = VALUES(payment_status)";
-        
-        try (Connection conn = SimpleDatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
+        try (Connection conn = SimpleDatabaseConnection.getConnection()) {
             conn.setAutoCommit(false);
             
-            for (Order order : orders.values()) {
-                pstmt.setString(1, order.getOrderId());
-                pstmt.setString(2, order.getUser().getId());
-                pstmt.setString(3, order.getShow().getId());
-                pstmt.setDouble(4, order.getTotalAmount());
-                pstmt.setString(5, "CONFIRMED"); // 默认状态
-                pstmt.setString(6, "PAID"); // 默认支付状态
-                pstmt.addBatch();
+            // 先获取数据库中所有的订单ID
+            Set<String> dbOrderIds = new HashSet<>();
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT order_id FROM orders")) {
+                while (rs.next()) {
+                    dbOrderIds.add(rs.getString("order_id"));
+                }
             }
             
-            pstmt.executeBatch();
+            // 删除数据库中存在但内存中不存在的订单
+            Set<String> orderIdsToDelete = new HashSet<>(dbOrderIds);
+            orderIdsToDelete.removeAll(orders.keySet());
+            
+            if (!orderIdsToDelete.isEmpty()) {
+                String deleteSql = "DELETE FROM orders WHERE order_id = ?";
+                try (PreparedStatement deletePstmt = conn.prepareStatement(deleteSql)) {
+                    for (String orderId : orderIdsToDelete) {
+                        deletePstmt.setString(1, orderId);
+                        deletePstmt.addBatch();
+                    }
+                    deletePstmt.executeBatch();
+                }
+            }
+            
+            // 插入或更新内存中的订单
+            String sql = "INSERT INTO orders (order_id, user_id, show_id, total_amount, status, payment_status) " +
+                         "VALUES (?, ?, ?, ?, ?, ?) " +
+                         "ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), show_id = VALUES(show_id), " +
+                         "total_amount = VALUES(total_amount), status = VALUES(status), " +
+                         "payment_status = VALUES(payment_status)";
+            
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                for (Order order : orders.values()) {
+                    pstmt.setString(1, order.getOrderId());
+                    pstmt.setString(2, order.getUser().getId());
+                    pstmt.setString(3, order.getShow().getId());
+                    pstmt.setDouble(4, order.getTotalAmount());
+                    
+                    // 转换订单状态
+                    String statusStr;
+                    switch (order.getStatus()) {
+                        case PENDING:
+                            statusStr = "PENDING";
+                            break;
+                        case RESERVED:
+                            statusStr = "RESERVED";
+                            break;
+                        case PAID:
+                            statusStr = "PAID";
+                            break;
+                        case CANCELLED:
+                            statusStr = "CANCELLED";
+                            break;
+                        case REFUNDED:
+                            statusStr = "REFUNDED";
+                            break;
+                        case EXPIRED:
+                            statusStr = "EXPIRED";
+                            break;
+                        default:
+                            statusStr = "PENDING";
+                    }
+                    pstmt.setString(5, statusStr);
+                    
+                    // 转换支付状态
+                    String paymentStatusStr;
+                    if (order.getStatus() == Order.OrderStatus.PAID || 
+                        order.getStatus() == Order.OrderStatus.REFUNDED) {
+                        paymentStatusStr = "PAID";
+                    } else {
+                        paymentStatusStr = "UNPAID";
+                    }
+                    pstmt.setString(6, paymentStatusStr);
+                    
+                    pstmt.addBatch();
+                }
+                pstmt.executeBatch();
+            }
+            
             conn.commit();
             
         } catch (SQLException e) {
             System.err.println("保存订单数据失败: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
     public Map<String, Order> loadOrders() {
         Map<String, Order> orders = new HashMap<>();
+        
+        // 先加载所有场次
+        Map<String, Show> shows = loadShows();
+        Map<String, User> users = loadUsers();
+        
         String sql = "SELECT * FROM orders";
         
         try (Connection conn = SimpleDatabaseConnection.getConnection();
@@ -350,8 +468,51 @@ public class MySQLDataStorage {
              ResultSet rs = stmt.executeQuery(sql)) {
             
             while (rs.next()) {
-                // 注意：Order的构造函数需要Show对象，这里暂时跳过
-                // TODO: 实现完整的Order加载逻辑，需要先加载Show和Seat
+                String orderId = rs.getString("order_id");
+                String userId = rs.getString("user_id");
+                String showId = rs.getString("show_id");
+                double totalAmount = rs.getDouble("total_amount");
+                String statusStr = rs.getString("status");
+                String paymentStatusStr = rs.getString("payment_status");
+                Timestamp createTime = rs.getTimestamp("created_at");
+                
+                // 获取对应的Show和User
+                Show show = shows.get(showId);
+                User user = users.get(userId);
+                
+                if (show != null && user != null) {
+                    // 转换订单状态
+                    Order.OrderStatus status;
+                    switch (statusStr) {
+                        case "PENDING":
+                            status = Order.OrderStatus.PENDING;
+                            break;
+                        case "RESERVED":
+                            status = Order.OrderStatus.RESERVED;
+                            break;
+                        case "PAID":
+                            status = Order.OrderStatus.PAID;
+                            break;
+                        case "CANCELLED":
+                            status = Order.OrderStatus.CANCELLED;
+                            break;
+                        case "REFUNDED":
+                            status = Order.OrderStatus.REFUNDED;
+                            break;
+                        case "EXPIRED":
+                            status = Order.OrderStatus.EXPIRED;
+                            break;
+                        default:
+                            status = Order.OrderStatus.PENDING;
+                    }
+                    
+                    // 创建订单（座位列表暂时为空，因为需要额外查询order_seats表）
+                    Order order = new Order(orderId, show, new ArrayList<>(), 
+                                              createTime.toLocalDateTime(), status);
+                    order.setUser(user);
+                    // 注意：totalAmount会在Order构造函数中重新计算
+                    orders.put(orderId, order);
+                }
             }
             
         } catch (SQLException e) {

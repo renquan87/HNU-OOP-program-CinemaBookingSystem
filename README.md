@@ -2,11 +2,11 @@
 
 ## 项目概述
 
-本项目是一个基于Java 21开发的电影院购票管理系统，采用面向对象设计模式，实现了完整的电影院业务流程。系统支持MySQL数据库和文件存储双模式（暂未测试双模式），具备用户购票、管理员管理、座位选择、订单处理等核心功能。
+本项目是一个基于Java 17开发的电影院购票管理系统，采用面向对象设计模式，实现了完整的电影院业务流程。系统使用MySQL数据库存储，具备用户购票、管理员管理、座位选择、订单处理等核心功能。
 
 ### 系统特色
 
-1. **双模式存储架构**：自动检测MySQL可用性，优先使用数据库，不可用时回退到文件存储
+1. **MySQL数据库存储架构**：使用MySQL数据库存储所有数据，确保数据持久化和一致性
 2. **完整的业务流程**：从电影管理到座位选择、订单支付的全流程支持
 3. **灵活的定价策略**：支持标准定价和高级定价策略，可根据时段、座位类型动态调价
 4. **安全的座位管理**：支持座位锁定、并发访问控制
@@ -171,11 +171,6 @@ public interface PricingStrategy {
 
 ### 4. 数据存储层 (storage包)
 
-#### SimpleDataStorage - 文件存储实现
-- 使用Java原生序列化
-- 数据文件存储在`data/`目录
-- 支持系统重启后数据恢复
-
 #### MySQLDataStorage - MySQL数据库实现
 - 使用JDBC连接MySQL
 - 支持事务处理
@@ -195,7 +190,7 @@ LEFT JOIN screening_rooms r ON s.room_id = r.id
 
 #### SimpleDatabaseConnection - 数据库连接管理
 - 自动检测MySQL驱动可用性
-- 管理数据库连接池
+- 支持从命令行参数加载密码
 - 处理连接异常
 
 ### 5. 异常处理层 (exception包)
@@ -291,11 +286,29 @@ CREATE TABLE screening_rooms (
     id VARCHAR(50) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     room_rows INT NOT NULL,
-    room_columns INT NOT NULL
+    room_columns INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 ```
 
 **注意**：`rows`是MySQL保留字，因此使用`room_rows`
+
+#### seats表 - 座位信息
+```sql
+CREATE TABLE seats (
+    id VARCHAR(50) PRIMARY KEY,
+    room_id VARCHAR(50) NOT NULL,
+    seat_row INT NOT NULL,
+    seat_column INT NOT NULL,
+    seat_type VARCHAR(20) NOT NULL,
+    price_multiplier DOUBLE NOT NULL DEFAULT 1.0,
+    is_available BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (room_id) REFERENCES screening_rooms(id) ON DELETE CASCADE
+);
+```
 
 #### shows表 - 场次信息
 ```sql
@@ -303,9 +316,11 @@ CREATE TABLE shows (
     id VARCHAR(50) PRIMARY KEY,
     movie_id VARCHAR(50) NOT NULL,
     room_id VARCHAR(50) NOT NULL,
-    start_time DATETIME NOT NULL,
-    end_time DATETIME NOT NULL,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL,
     base_price DOUBLE NOT NULL,
+    discount_price DOUBLE NOT NULL,
+    vip_price DOUBLE NOT NULL,
     status VARCHAR(20) DEFAULT 'SCHEDULED',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -321,7 +336,19 @@ CREATE TABLE users (
     name VARCHAR(100) NOT NULL,
     phone VARCHAR(20) NOT NULL,
     email VARCHAR(100) NOT NULL,
-    is_admin BOOLEAN DEFAULT FALSE
+    role VARCHAR(20) NOT NULL DEFAULT 'CUSTOMER'
+);
+```
+
+#### order_seats表 - 订单座位关联表
+```sql
+CREATE TABLE order_seats (
+    id VARCHAR(50) PRIMARY KEY,
+    order_id VARCHAR(50) NOT NULL,
+    seat_id VARCHAR(50) NOT NULL,
+    price DOUBLE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE
 );
 ```
 
@@ -433,20 +460,34 @@ CREATE INDEX idx_order_user_id ON orders(user_id);
 
 ### Maven依赖管理 (pom.xml)
 ```xml
+<properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <java.version>17</java.version>
+</properties>
+
 <dependencies>
-    <!-- MySQL连接器 -->
-    <dependency>
-        <groupId>com.mysql</groupId>
-        <artifactId>mysql-connector-j</artifactId>
-        <version>8.0.33</version>
-    </dependency>
-    
     <!-- JUnit测试框架 -->
     <dependency>
         <groupId>org.junit.jupiter</groupId>
         <artifactId>junit-jupiter</artifactId>
         <version>5.9.2</version>
         <scope>test</scope>
+    </dependency>
+    
+    <!-- MySQL Connector -->
+    <dependency>
+        <groupId>com.mysql</groupId>
+        <artifactId>mysql-connector-j</artifactId>
+        <version>8.0.33</version>
+    </dependency>
+    
+    <!-- Connection Pool -->
+    <dependency>
+        <groupId>com.zaxxer</groupId>
+        <artifactId>HikariCP</artifactId>
+        <version>5.0.1</version>
     </dependency>
 </dependencies>
 ```
@@ -459,6 +500,7 @@ CinemaBookingSystem/
 │   │   ├── java/com/cinema/
 │   │   │   ├── Main.java                 # 程序入口
 │   │   │   ├── DatabaseInitializer.java  # 数据库初始化工具
+│   │   │   ├── MigrateToMySQL.java       # 数据迁移工具
 │   │   │   ├── exception/                # 异常类定义
 │   │   │   ├── model/                    # 实体类
 │   │   │   ├── service/                  # 业务服务层
@@ -469,46 +511,45 @@ CinemaBookingSystem/
 │   │       ├── config.properties         # 数据库配置
 │   │       └── schema.sql                # 数据库建表脚本
 │   └── test/java/com/cinema/             # 测试代码
-├── data/                                 # 文件存储目录
-│   ├── movies.dat                        # 电影数据文件
-│   ├── orders.dat                        # 订单数据文件
-│   ├── rooms.dat                         # 放映厅数据文件
-│   ├── shows.dat                         # 场次数据文件
-│   └── users.dat                         # 用户数据文件
+├── data/                                 # 备份数据目录（仅用于备份）
+│   └── backup_20251211_184401/            # 数据备份目录
 ├── lib/                                  # 依赖库目录
 ├── target/                               # Maven构建输出
 ├── pom.xml                               # Maven配置文件
 ├── run.bat                               # Windows运行脚本
+├── test_mysql.bat                        # MySQL测试脚本
 └── README.md                             # 项目文档
 ```
 
 ##  快速开始
 
 ```shell
-mvn dependency:copy-dependencies -DoutputDirectory=lib
-mvn clean compile
-# 支持从命令行直接传入密码
+mvn dependency:copy-dependencies -DoutputDirectory=lib # 依赖
+mvn clean compile # 编译
+
+
+# 初始化数据库（支持从命令行直接传入密码）
 java -cp "lib/*;target/classes" com.cinema.DatabaseInitializer <your_password>
 
-# 或者可以直接一步到位
+# 运行系统
 java -cp "lib/*;target/classes" com.cinema.Main <your_password>
 ```
 
-最好直接使用系统的命令行，简单明了/
+最好直接使用系统的命令行，简单明了。
 
 开发时用的是vscode的集成终端。
 
 IDEA可能有终端中文乱码问题，可搜教程解决。
 
-用MySQL Workbench或者Command Line可查看数据库存储情况。
+用MySQL Workbench或者Command Line可查看数据库存储情况。（具体查看[MySQLWorkbench.md](MySQLWorkbench.md)）
 
 ## 开发指南
 
 ### 1. 环境搭建
 
-#### 安装Java 21
+#### 安装Java 17
 ```bash
-# Windows: 下载并安装Oracle JDK 21
+# Windows: 下载并安装Oracle JDK 17
 # 设置环境变量JAVA_HOME
 # 验证安装
 java -version
@@ -534,7 +575,6 @@ mvn -version
 
 ### 2. 项目初始化
 
-
 #### 克隆项目
 ```bash
 git clone https://github.com/renquan87/HNU-OOP-program2-CinemaBookingSystem.git
@@ -558,6 +598,12 @@ mvn clean compile
 java -cp "lib/*;target/classes" com.cinema.DatabaseInitializer
 ```
 
+#### 测试MySQL连接（可选）
+```bash
+# 运行测试脚本验证MySQL连接
+.\test_mysql.bat
+```
+
 ### 3. 运行项目
 
 #### 方式1：使用批处理文件（推荐）
@@ -568,11 +614,8 @@ java -cp "lib/*;target/classes" com.cinema.DatabaseInitializer
 
 #### 方式2：命令行运行
 ```bash
-# 使用MySQL数据库
+# 运行系统
 java -cp "lib/*;target/classes" com.cinema.Main
-
-# 仅使用文件存储
-java -cp "target/classes" com.cinema.Main
 ```
 
 #### 方式3：Maven运行
@@ -703,14 +746,10 @@ SHOW VARIABLES LIKE 'slow_query_log';
 
 ```
 1. 数据加载（系统启动）
-   ├── 检测MySQL可用性
-   ├── MySQL可用：从数据库加载
-   └── MySQL不可用：从文件加载
+   └── 从MySQL数据库加载所有数据
 
 2. 数据保存（实时）
-   ├── 数据变更时立即保存
-   ├── MySQL模式：保存到数据库
-   └── 文件模式：保存到文件
+   └── 数据变更时立即保存到MySQL数据库
 
 3. 数据备份（管理员功能）
    ├── 导出数据库数据
@@ -965,6 +1004,13 @@ public void testCreateOrder() {
 ```markdown
 ## 更新日志
 
+### v1.2.0 (2025-12-11)
+- 完全迁移到MySQL数据库存储
+- 删除所有文件存储相关代码
+- 更新JDK版本至17
+- 添加数据库连接池支持
+- 优化数据库表结构
+
 ### v1.1.0 (2025-12-10)
 - 新增：MySQL数据库支持
 - 修复：场次查询空指针异常
@@ -986,4 +1032,4 @@ public void testCreateOrder() {
 
 ---
 
-*本文档最后更新时间：2025年12月10日*(AI生成)
+*本文档最后更新时间：2025年12月11日*

@@ -211,8 +211,14 @@ public class NewMethods {
 
     public void logout() {
         System.out.println("\n----- 退出登录 -----");
-        cinemaManager.saveAllData();
-        System.out.println("数据已保存");
+        try {
+            // 只保存关键数据，避免卡死
+            cinemaManager.saveMovies();
+            cinemaManager.saveUsers();
+            System.out.println("数据已保存");
+        } catch (Exception e) {
+            System.err.println("保存数据时出错: " + e.getMessage());
+        }
         System.out.println("再见，" + currentUser.getName() + "！");
         currentUser = null;
     }

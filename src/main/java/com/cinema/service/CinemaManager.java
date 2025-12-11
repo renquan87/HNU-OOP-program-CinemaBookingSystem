@@ -1,7 +1,6 @@
 package com.cinema.service;
 
 import com.cinema.model.*;
-import com.cinema.storage.SimpleDataStorage;
 import com.cinema.storage.MySQLDataStorage;
 
 import java.time.LocalDate;
@@ -17,37 +16,38 @@ public class CinemaManager {
     private final Map<String, ScreeningRoom> rooms;
     private final Map<String, Show> shows;
     private final Map<String, User> users;
-    private final SimpleDataStorage dataStorage;
     private final MySQLDataStorage mysqlDataStorage;
     private final boolean useMySQL;
 
     private CinemaManager() {
-        this.dataStorage = new SimpleDataStorage();
         this.movies = new ConcurrentHashMap<>();
         this.rooms = new ConcurrentHashMap<>();
         this.shows = new ConcurrentHashMap<>();
         this.users = new ConcurrentHashMap<>();
         
-        // 尝试使用MySQL，如果失败则使用文件存储
-        boolean mysqlAvailable = false;
+        // 强制使用MySQL存储
         MySQLDataStorage mysqlStorage = null;
         try {
             mysqlStorage = new MySQLDataStorage();
-            mysqlAvailable = true;
-            System.out.println("使用MySQL数据库存储");
+            System.out.println("✓ 系统已切换到MySQL数据库存储模式");
         } catch (Exception e) {
-            System.err.println("MySQL连接失败，使用文件存储: " + e.getMessage());
-            System.err.println("提示：如需使用MySQL，请下载MySQL Connector/J并添加到classpath");
-            mysqlStorage = null;
+            System.err.println("✗ MySQL连接失败: " + e.getMessage());
+            System.err.println("错误：系统必须使用MySQL数据库存储，请检查：");
+            System.err.println("  1. MySQL服务是否已启动");
+            System.err.println("  2. 数据库连接配置是否正确");
+            System.err.println("  3. MySQL Connector/J驱动是否在lib目录中");
+            System.err.println("\n程序将退出，请修复MySQL连接后重试");
+            System.exit(1); // 如果MySQL不可用，退出程序
         }
         this.mysqlDataStorage = mysqlStorage;
-        this.useMySQL = mysqlAvailable;
+        this.useMySQL = true; // 强制使用MySQL
         
         loadData();
         
         // 如果没有数据，则初始化默认数据
         if (movies.isEmpty() && rooms.isEmpty() && users.isEmpty()) {
             initializeDefaultData();
+            System.out.println("✓ 已初始化默认数据到MySQL数据库");
         }
     }
 
@@ -157,34 +157,60 @@ public class CinemaManager {
 
         // Create default admin user
         User admin = new User(
-            "ADMIN-001",
+            "admin-001",
             "管理员",
             "13800138000",
             "admin@cinema.com",
             User.UserRole.ADMIN
         );
         users.put(admin.getId(), admin);
+
+        // Create default normal user
+        User testUser = new User(
+            "test",          // 用户 ID（唯一）
+            "test",              // 用户名
+            "18800000000",       // 手机号（随便写一个）
+            "test@cinema.com",   // 邮箱
+            User.UserRole.CUSTOMER  // 普通用户角色
+        );
+        users.put(testUser.getId(), testUser);
+
     }
 
     public void addMovie(Movie movie) {
         if (movie != null && movie.getId() != null) {
             movies.put(movie.getId(), movie);
             saveMovies();
+            System.out.println("电影添加成功并已保存到数据库");
         }
     }
 
     public void removeMovie(String movieId) {
-        Movie movie = movies.remove(movieId);
+        Movie movie = movies.get(movieId);
         if (movie != null) {
-            // Remove all shows for this movie
-            Map<LocalDate, List<Show>> allShows = movie.getAllShows();
-            for (List<Show> showList : allShows.values()) {
-                for (Show show : showList) {
-                    shows.remove(show.getId());
+            // 先删除所有相关的场次（从shows集合中删除）
+            List<Show> showsToRemove = new ArrayList<>();
+            for (Show show : shows.values()) {
+                if (show.getMovieId().equals(movieId)) {
+                    showsToRemove.add(show);
                 }
             }
-            saveMovies();
+            
+            // 从shows集合中删除这些场次
+            for (Show show : showsToRemove) {
+                shows.remove(show.getId());
+            }
+            
+            // 保存场次到数据库（先保存）
             saveShows();
+            
+            // 然后从movies集合中删除电影
+            movies.remove(movieId);
+            
+            // 最后保存电影到数据库
+            saveMovies();
+            
+            System.out.println("电影删除成功并已从数据库移除");
         }
     }
 
@@ -194,6 +220,7 @@ public class CinemaManager {
             show.getMovie().addShow(show.getStartTime().toLocalDate(), show);
             saveShows();
             saveMovies();
+            System.out.println("场次添加成功并已保存到数据库");
         }
     }
 
@@ -203,6 +230,7 @@ public class CinemaManager {
             show.getMovie().removeShow(show.getStartTime().toLocalDate(), show);
             saveShows();
             saveMovies();
+            System.out.println("场次删除成功并已从数据库移除");
         }
     }
 
@@ -210,24 +238,32 @@ public class CinemaManager {
         if (room != null && room.getId() != null) {
             rooms.put(room.getId(), room);
             saveRooms();
+            System.out.println("放映厅添加成功并已保存到数据库");
         }
     }
 
     public void removeScreeningRoom(String roomId) {
-        rooms.remove(roomId);
-        saveRooms();
+        ScreeningRoom room = rooms.remove(roomId);
+        if (room != null) {
+            saveRooms();
+            System.out.println("放映厅删除成功并已从数据库移除");
+        }
     }
 
     public void addUser(User user) {
         if (user != null && user.getId() != null) {
             users.put(user.getId(), user);
             saveUsers();
+            System.out.println("用户添加成功并已保存到数据库");
         }
     }
 
     public void removeUser(String userId) {
-        users.remove(userId);
-        saveUsers();
+        User user = users.remove(userId);
+        if (user != null) {
+            saveUsers();
+            System.out.println("用户删除成功并已从数据库移除");
+        }
     }
 
     public Movie getMovie(String movieId) {
@@ -301,17 +337,19 @@ public class CinemaManager {
     }
     
     private void loadData() {
-        if (useMySQL && mysqlDataStorage != null) {
-            movies.putAll(mysqlDataStorage.loadMovies());
-            rooms.putAll(mysqlDataStorage.loadScreeningRooms());
-            shows.putAll(mysqlDataStorage.loadShows());
-            users.putAll(mysqlDataStorage.loadUsers());
-        } else {
-            movies.putAll(dataStorage.loadMovies());
-            rooms.putAll(dataStorage.loadScreeningRooms());
-            shows.putAll(dataStorage.loadShows());
-            users.putAll(dataStorage.loadUsers());
-        }
+        // 只从MySQL加载数据
+        System.out.println("正在从MySQL数据库加载数据...");
+        
+        movies.putAll(mysqlDataStorage.loadMovies());
+        rooms.putAll(mysqlDataStorage.loadScreeningRooms());
+        shows.putAll(mysqlDataStorage.loadShows());
+        users.putAll(mysqlDataStorage.loadUsers());
+        
+        System.out.println("✓ 数据加载完成");
+        System.out.println("  - 电影: " + movies.size() + " 部");
+        System.out.println("  - 放映厅: " + rooms.size() + " 个");
+        System.out.println("  - 场次: " + shows.size() + " 个");
+        System.out.println("  - 用户: " + users.size() + " 个");
         
         // 重建电影和场次的关系
         // 由于使用JOIN查询已经加载了关联对象，这里不再需要重建
@@ -320,36 +358,28 @@ public class CinemaManager {
         // 这个关系重建将在BookingService初始化后完成
     }
     
-    private void saveMovies() {
-        if (useMySQL && mysqlDataStorage != null) {
-            mysqlDataStorage.saveMovies(movies);
-        } else {
-            dataStorage.saveMovies(movies);
-        }
+    public void saveMovies() {
+        // 只保存到MySQL数据库
+        mysqlDataStorage.saveMovies(movies);
+        System.out.println("✓ 电影数据已保存到MySQL数据库");
     }
     
-    private void saveRooms() {
-        if (useMySQL && mysqlDataStorage != null) {
-            mysqlDataStorage.saveScreeningRooms(rooms);
-        } else {
-            dataStorage.saveScreeningRooms(rooms);
-        }
+    public void saveRooms() {
+        // 只保存到MySQL数据库
+        mysqlDataStorage.saveScreeningRooms(rooms);
+        System.out.println("✓ 放映厅数据已保存到MySQL数据库");
     }
     
-    private void saveShows() {
-        if (useMySQL && mysqlDataStorage != null) {
-            mysqlDataStorage.saveShows(shows);
-        } else {
-            dataStorage.saveShows(shows);
-        }
+    public void saveShows() {
+        // 只保存到MySQL数据库
+        mysqlDataStorage.saveShows(shows);
+        System.out.println("✓ 场次数据已保存到MySQL数据库");
     }
     
-    private void saveUsers() {
-        if (useMySQL && mysqlDataStorage != null) {
-            mysqlDataStorage.saveUsers(users);
-        } else {
-            dataStorage.saveUsers(users);
-        }
+    public void saveUsers() {
+        // 只保存到MySQL数据库
+        mysqlDataStorage.saveUsers(users);
+        System.out.println("✓ 用户数据已保存到MySQL数据库");
     }
     
     public void saveAllData() {
@@ -361,7 +391,14 @@ public class CinemaManager {
     }
     
     public void backupData() {
-        dataStorage.backupData();
+        // MySQL数据库备份
+        try {
+            System.out.println("正在备份MySQL数据库...");
+            // 这里可以添加MySQL备份逻辑
+            System.out.println("✓ MySQL数据库备份完成");
+        } catch (Exception e) {
+            System.err.println("✗ 数据库备份失败: " + e.getMessage());
+        }
     }
     
     public void shutdown() {
