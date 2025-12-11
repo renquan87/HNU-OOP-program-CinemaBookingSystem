@@ -14,28 +14,26 @@ public class SimpleTest {
 
     public static void testCinemaManager() {
         System.out.println("Testing CinemaManager...");
-        
         CinemaManager cinemaManager = CinemaManager.getInstance();
-        
+
         // Test singleton
         CinemaManager instance2 = CinemaManager.getInstance();
         if (cinemaManager != instance2) {
             throw new RuntimeException("CinemaManager singleton test failed");
         }
-        
+
         // Test adding movie
         Movie movie = new Movie(
-            "TEST-001",
-            "测试电影",
-            LocalDate.of(2023, 1, 1),
-            List.of("演员1", "演员2"),
-            "测试导演",
-            120,
-            8.0,
-            "测试描述",
-            "测试类型"
+                "TEST-001",
+                "测试电影",
+                LocalDate.of(2023, 1, 1),
+                List.of("演员1", "演员2"),
+                "测试导演",
+                120,
+                8.0,
+                "测试描述",
+                "测试类型"
         );
-
         cinemaManager.addMovie(movie);
         Movie retrieved = cinemaManager.getMovie("TEST-001");
 
@@ -57,38 +55,36 @@ public class SimpleTest {
 
     public static void testBookingService() {
         System.out.println("Testing BookingService...");
-        
         CinemaManager cinemaManager = CinemaManager.getInstance();
         BookingService bookingService = BookingService.getInstance(new com.cinema.strategy.StandardPricing());
-        
+
         // Create test user
-        User testUser = new User("TEST-USER", "测试用户", "13800138000", "test@example.com");
+        // [修复]：添加了 "123456" 作为密码参数 (第三个参数)
+        User testUser = new User("TEST-USER", "测试用户", "123456", "13800138000", "test@example.com");
         cinemaManager.addUser(testUser);
 
         // Create test show
         Movie movie = new Movie(
-            "TEST-MOVIE",
-            "测试电影",
-            LocalDate.of(2023, 1, 1),
-            List.of("演员1"),
-            "导演",
-            120,
-            8.0,
-            "描述",
-            "类型"
+                "TEST-MOVIE",
+                "测试电影",
+                LocalDate.of(2023, 1, 1),
+                List.of("演员1"),
+                "导演",
+                120,
+                8.0,
+                "描述",
+                "类型"
         );
-
         ScreeningRoom room = new ScreeningRoom("TEST-ROOM-BOOKING", "测试厅2", 3, 5);
         cinemaManager.addScreeningRoom(room);
 
         Show testShow = new Show(
-            "TEST-SHOW",
-            movie,
-            room,
-            LocalDateTime.now().plusDays(1),
-            50.0
+                "TEST-SHOW",
+                movie,
+                room,
+                LocalDateTime.now().plusDays(1),
+                50.0
         );
-
         cinemaManager.addMovie(movie);
         cinemaManager.addShow(testShow);
 

@@ -157,11 +157,12 @@ public class CinemaManager {
 
         // Create default admin user
         User admin = new User(
-            "ADMIN-001",
-            "管理员",
-            "13800138000",
-            "admin@cinema.com",
-            User.UserRole.ADMIN
+                "ADMIN-001",
+                "管理员",
+                "admin123",      // 密码
+                "13800138000",
+                "admin@cinema.com",
+                User.UserRole.ADMIN
         );
         users.put(admin.getId(), admin);
     }

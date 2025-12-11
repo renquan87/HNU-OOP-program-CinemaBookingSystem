@@ -341,79 +341,94 @@ public class ConsoleUI {
             return false;
         }
     }
-    
+
     private void performRegister() {
         System.out.println("\n----- 用户注册 -----");
-        
+
         while (true) {
             System.out.print("请输入用户ID (字母数字组合，3-20位): ");
             String userId = readLine();
-            
+
             if (userId.isEmpty()) {
                 System.out.println("用户ID不能为空");
                 continue;
             }
-            
+
             if (userId.length() < 3 || userId.length() > 20) {
                 System.out.println("用户ID长度必须在3-20位之间");
                 continue;
             }
-            
+
             if (!userId.matches("^[a-zA-Z0-9_]+$")) {
                 System.out.println("用户ID只能包含字母、数字和下划线");
                 continue;
             }
-            
+
             if (cinemaManager.getUser(userId) != null) {
                 System.out.println("用户ID已存在，请选择其他ID");
                 continue;
             }
-            
+
             System.out.print("请输入姓名: ");
             String name = readLine();
             if (name.isEmpty()) {
                 System.out.println("姓名不能为空");
                 continue;
             }
-            
+
+            // ================= [新增开始] =================
+            System.out.print("请输入密码 (至少6位): ");
+            String password = readLine();
+            if (password.length() < 6) {
+                System.out.println("密码长度不能少于6位");
+                continue;
+            }
+            // ================= [新增结束] =================
+
             System.out.print("请输入电话: ");
             String phone = readLine();
             if (phone.isEmpty()) {
                 System.out.println("电话不能为空");
                 continue;
             }
-            
+
             if (!phone.matches("^1[3-9]\\d{9}$")) {
                 System.out.println("请输入有效的手机号码");
                 continue;
             }
-            
+
             System.out.print("请输入邮箱: ");
             String email = readLine();
             if (email.isEmpty()) {
                 System.out.println("邮箱不能为空");
                 continue;
             }
-            
+
             if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
                 System.out.println("请输入有效的邮箱地址");
                 continue;
             }
-            
+
             System.out.print("注册为管理员用户？(Y/N): ");
             String adminChoice = readLine();
             boolean isAdmin = adminChoice.equalsIgnoreCase("Y");
-            
+
             User.UserRole role = isAdmin ? User.UserRole.ADMIN : User.UserRole.CUSTOMER;
-            User newUser = new User(userId, name, phone, email, role);
+
+            // ================= [修改这里] =================
+            // 原来的代码：User newUser = new User(userId, name, phone, email, role);
+            // 修改后的代码（加入了 password）：
+            User newUser = new User(userId, name, password, phone, email, role);
+            // ============================================
+
             cinemaManager.addUser(newUser);
-            
+
             System.out.println("用户注册成功！");
             System.out.println("用户ID: " + userId);
             System.out.println("姓名: " + name);
             System.out.println("角色: " + (isAdmin ? "管理员" : "普通用户"));
             System.out.println("现在可以使用该用户ID登录系统");
-            
+
             return;
         }
     }

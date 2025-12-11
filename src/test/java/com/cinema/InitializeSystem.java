@@ -20,19 +20,19 @@ public class InitializeSystem {
         CinemaManager cinemaManager = CinemaManager.getInstance();
         BookingService bookingService = BookingService.getInstance(new StandardPricing());
         
-        // 1. 创建用户（保留原有用户）
+        // 1. 创建用户（使用你修改过的带密码版本）
         System.out.println("1. 创建用户账号");
         createUsers(cinemaManager);
         
-        // 2. 创建电影
+        // 2. 创建电影（使用同学的完整版本）
         System.out.println("\n2. 创建电影");
         createMovies(cinemaManager);
         
-        // 3. 创建放映厅
+        // 3. 创建放映厅（使用同学的完整版本）
         System.out.println("\n3. 创建放映厅");
         createScreeningRooms(cinemaManager);
         
-        // 4. 创建场次
+        // 4. 创建场次（使用同学的完整逻辑）
         System.out.println("\n4. 创建场次");
         createShows(cinemaManager);
         
@@ -50,26 +50,46 @@ public class InitializeSystem {
         System.out.println("订单: " + bookingService.getAllOrders().size() + " 个");
     }
     
+    // 【你的修改】使用了带复杂密码的构造函数
     private static void createUsers(CinemaManager cinemaManager) {
-        // 管理员
-        User admin = new User("ADMIN-001", "系统管理员", "13800138000", 
-                            "admin@cinema.com", User.UserRole.ADMIN);
+        // 管理员 (Admin@123)
+        User admin = new User(
+                "ADMIN-001", 
+                "系统管理员", 
+                "Admin@123",  // 你的修改：加入了密码
+                "13800138000", 
+                "admin@cinema.com", 
+                User.UserRole.ADMIN
+        );
         cinemaManager.addUser(admin);
         System.out.println("  - 创建管理员: " + admin.getId());
         
-        // 普通用户
-        User user = new User("renquan", "renquan", "13900139000", 
-                           "renquan@example.com", User.UserRole.CUSTOMER);
+        // 普通用户 (User@123)
+        User user = new User(
+                "renquan", 
+                "renquan", 
+                "User@123",   // 你的修改：加入了密码
+                "13900139000", 
+                "renquan@example.com", 
+                User.UserRole.CUSTOMER
+        );
         cinemaManager.addUser(user);
         System.out.println("  - 创建用户: " + user.getId());
         
-        // 测试用户
-        User testUser = new User("test", "测试用户", "13700137000", 
-                                "test@example.com", User.UserRole.CUSTOMER);
+        // 测试用户 (User@123)
+        User testUser = new User(
+                "test", 
+                "测试用户", 
+                "User@123",   // 你的修改：加入了密码
+                "13700137000", 
+                "test@example.com", 
+                User.UserRole.CUSTOMER
+        );
         cinemaManager.addUser(testUser);
         System.out.println("  - 创建用户: " + testUser.getId());
     }
     
+    // 【同学的代码】保留他写的电影数据
     private static void createMovies(CinemaManager cinemaManager) {
         Movie movie1 = new Movie("MOV-001", "阿凡达：水之道", LocalDate.of(2022, 12, 16),
                                Arrays.asList("萨姆·沃辛顿", "佐伊·索尔达娜", "西格妮·韦弗"),
@@ -106,6 +126,7 @@ public class InitializeSystem {
         System.out.println("  - " + movie4.getTitle());
     }
     
+    // 【同学的代码】保留他写的放映厅数据
     private static void createScreeningRooms(CinemaManager cinemaManager) {
         ScreeningRoom room1 = new ScreeningRoom("ROOM-1", "1号厅", 8, 12);
         ScreeningRoom room2 = new ScreeningRoom("ROOM-2", "2号厅", 10, 15);
@@ -123,11 +144,12 @@ public class InitializeSystem {
         System.out.println("  - 4号厅: 8排×10列");
     }
     
+    // 【同学的代码】保留他写的复杂的场次计算逻辑
     private static void createShows(CinemaManager cinemaManager) {
         List<Movie> movies = cinemaManager.getAllMovies();
         List<ScreeningRoom> rooms = cinemaManager.getAllScreeningRooms();
         
-        LocalDateTime now = LocalDateTime.now();
+        // LocalDateTime now = LocalDateTime.now(); // 同学代码里有但这行似乎没用上，可以注释掉
         int showIndex = 1;
         
         // 为每部电影创建多个场次

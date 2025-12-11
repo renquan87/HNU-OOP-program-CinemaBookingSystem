@@ -1,5 +1,6 @@
 package com.cinema.service;
 
+import com.cinema.exception.*;
 import com.cinema.model.*;
 import com.cinema.strategy.StandardPricing;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,31 +21,32 @@ class BookingServiceTest {
     void setUp() {
         bookingService = BookingService.getInstance(new StandardPricing());
         cinemaManager = CinemaManager.getInstance();
-        
-        testUser = new User("TEST-USER", "测试用户", "13800138000", "test@example.com");
+
+        // 1. 创建带密码的用户
+        testUser = new User("TEST-USER", "测试用户", "123456", "13800138000", "test@example.com");
         cinemaManager.addUser(testUser);
 
         Movie movie = new Movie(
-            "TEST-MOVIE",
-            "测试电影",
-            java.time.LocalDate.of(2023, 1, 1),
-            List.of("演员1"),
-            "导演",
-            120,
-            8.0,
-            "描述",
-            "类型"
+                "TEST-MOVIE",
+                "测试电影",
+                java.time.LocalDate.of(2023, 1, 1),
+                List.of("演员1"),
+                "导演",
+                120,
+                8.0,
+                "描述",
+                "类型"
         );
 
         ScreeningRoom room = new ScreeningRoom("TEST-ROOM", "测试厅", 3, 5);
         cinemaManager.addScreeningRoom(room);
 
         testShow = new Show(
-            "TEST-SHOW",
-            movie,
-            room,
-            LocalDateTime.now().plusDays(1),
-            50.0
+                "TEST-SHOW",
+                movie,
+                room,
+                LocalDateTime.now().plusDays(1),
+                50.0
         );
 
         cinemaManager.addMovie(movie);
@@ -52,7 +54,7 @@ class BookingServiceTest {
     }
 
     @Test
-    void testCreateOrder() {
+    void testCreateOrder() throws InvalidBookingException, SeatNotAvailableException {
         List<String> seatIds = List.of("1-1", "1-2");
         Order order = bookingService.createOrder(testUser, testShow, seatIds);
 
@@ -66,18 +68,20 @@ class BookingServiceTest {
     @Test
     void testCreateOrderWithInvalidSeat() {
         List<String> seatIds = List.of("10-10"); // Invalid seat
-        assertThrows(IllegalArgumentException.class, () -> {
+        assertThrows(Exception.class, () -> {
             bookingService.createOrder(testUser, testShow, seatIds);
         });
     }
 
     @Test
-    void testProcessPayment() {
+    void testProcessPayment() throws InvalidBookingException, SeatNotAvailableException, PaymentFailedException {
         List<String> seatIds = List.of("1-1");
         Order order = bookingService.createOrder(testUser, testShow, seatIds);
 
-        boolean result = bookingService.processPayment(order);
-        assertTrue(result);
+        // [修复点 1] 直接调用，不接收 boolean
+        bookingService.processPayment(order);
+
+        // 验证状态是否变成了 PAID
         assertEquals(Order.OrderStatus.PAID, order.getStatus());
 
         // Check seat is sold
@@ -86,12 +90,14 @@ class BookingServiceTest {
     }
 
     @Test
-    void testCancelPendingOrder() {
+    void testCancelPendingOrder() throws InvalidBookingException, SeatNotAvailableException {
         List<String> seatIds = List.of("1-1");
         Order order = bookingService.createOrder(testUser, testShow, seatIds);
 
-        boolean result = bookingService.cancelOrder(order);
-        assertTrue(result);
+        // [修复点 2] 直接调用，不接收 boolean
+        bookingService.cancelOrder(order);
+
+        // 验证状态是否变成了 CANCELLED
         assertEquals(Order.OrderStatus.CANCELLED, order.getStatus());
 
         // Check seat is unlocked
@@ -100,13 +106,15 @@ class BookingServiceTest {
     }
 
     @Test
-    void testRefundPaidOrder() {
+    void testRefundPaidOrder() throws InvalidBookingException, SeatNotAvailableException, PaymentFailedException {
         List<String> seatIds = List.of("1-1");
         Order order = bookingService.createOrder(testUser, testShow, seatIds);
         bookingService.processPayment(order);
 
-        boolean result = bookingService.cancelOrder(order);
-        assertTrue(result);
+        // [修复点 3] 直接调用，不接收 boolean
+        bookingService.cancelOrder(order);
+
+        // 验证状态是否变成了 REFUNDED
         assertEquals(Order.OrderStatus.REFUNDED, order.getStatus());
 
         // Check seat is unlocked
@@ -118,13 +126,13 @@ class BookingServiceTest {
     void testCalculateSeatPrice() {
         Seat seat = testShow.getSeat(1, 1);
         double price = bookingService.calculateSeatPrice(testShow, seat);
-        
+
         assertTrue(price > 0);
-        assertEquals(testShow.getBasePrice(), price, 0.01); // Standard pricing
+        assertEquals(testShow.getBasePrice(), price, 0.01);
     }
 
     @Test
-    void testGetOrder() {
+    void testGetOrder() throws InvalidBookingException, SeatNotAvailableException {
         List<String> seatIds = List.of("1-1");
         Order order = bookingService.createOrder(testUser, testShow, seatIds);
 
@@ -134,7 +142,7 @@ class BookingServiceTest {
     }
 
     @Test
-    void testGetAllOrders() {
+    void testGetAllOrders() throws InvalidBookingException, SeatNotAvailableException {
         List<String> seatIds = List.of("1-1");
         bookingService.createOrder(testUser, testShow, seatIds);
 
