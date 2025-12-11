@@ -14,6 +14,14 @@ public class SimpleDatabaseConnection {
     private static String driver;
     private static boolean driverAvailable = false;
     private static boolean initialized = false;
+    private static String[] commandLineArgs = null;
+    
+    /**
+     * 设置命令行参数（用于密码加载）
+     */
+    public static void setCommandLineArgs(String[] args) {
+        commandLineArgs = args;
+    }
     
     private static void initialize() {
         if (initialized) return;
@@ -26,17 +34,33 @@ public class SimpleDatabaseConnection {
                 props.load(input);
                 url = props.getProperty("db.url");
                 username = props.getProperty("db.username");
-                password = props.getProperty("db.password");
                 driver = props.getProperty("db.driver");
-            }
-            
-            // 如果配置文件不存在或配置不完整，使用默认值
-            if (url == null || username == null || password == null || driver == null) {
-                System.err.println("数据库配置不完整，将使用默认配置");
+                
+                // 加载密码：首先尝试从命令行参数获取，然后从配置文件获取
+                password = loadPassword(commandLineArgs, props);
+            } else {
+                // 如果配置文件不存在，使用默认值
                 url = "jdbc:mysql://localhost:3306/cinema_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC";
                 username = "root";
-                password = "123421";
                 driver = "com.mysql.cj.jdbc.Driver";
+                password = loadPassword(commandLineArgs, null);
+            }
+            
+            // 如果配置不完整，使用默认值
+            if (url == null || username == null || password == null || driver == null) {
+                System.err.println("数据库配置不完整，将使用默认配置");
+                if (url == null) {
+                    url = "jdbc:mysql://localhost:3306/cinema_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC";
+                }
+                if (username == null) {
+                    username = "root";
+                }
+                if (driver == null) {
+                    driver = "com.mysql.cj.jdbc.Driver";
+                }
+                if (password == null) {
+                    password = loadPassword(commandLineArgs, null);
+                }
             }
             
             // 尝试加载驱动
@@ -80,5 +104,31 @@ public class SimpleDatabaseConnection {
     public static boolean isDriverAvailable() {
         initialize();
         return driverAvailable;
+    }
+    
+    /**
+     * 加载数据库密码
+     * 1. 首先尝试从命令行参数获取
+     * 2. 如果失败，尝试从config.properties中加载
+     */
+    private static String loadPassword(String[] args, Properties props) {
+        // 1. 首先尝试从命令行参数获取
+        if (args != null && args.length > 0 && args[0] != null && !args[0].trim().isEmpty()) {
+            System.out.println("从命令行参数加载数据库密码");
+            return args[0].trim();
+        }
+        
+        // 2. 如果失败，尝试从config.properties中加载
+        if (props != null) {
+            String password = props.getProperty("db.password");
+            if (password != null && !password.trim().isEmpty()) {
+                System.out.println("从config.properties加载数据库密码");
+                return password.trim();
+            }
+        }
+        
+        // 如果都失败，使用默认值
+        System.err.println("警告: 未找到数据库密码配置，使用默认密码");
+        return "123421";
     }
 }
