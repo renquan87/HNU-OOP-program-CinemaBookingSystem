@@ -482,17 +482,28 @@ CinemaBookingSystem/
 └── README.md                             # 项目文档
 ```
 
-## 开发指南
-### *一步到位*
+##  快速开始
+
 ```shell
 mvn dependency:copy-dependencies -DoutputDirectory=lib
 mvn clean compile
-java -cp "lib/*;target/classes" com.cinema.DatabaseInitializer
-java -cp "lib/*;target/classes" com.cinema.Main
+# 支持从命令行直接传入密码
+java -cp "lib/*;target/classes" com.cinema.DatabaseInitializer <your_password>
+
+# 或者可以直接一步到位
+java -cp "lib/*;target/classes" com.cinema.Main <your_password>
 ```
-我用的是vscode，集成终端。
+
+最好直接使用系统的命令行，简单明了/
+
+开发时用的是vscode的集成终端。
+
 IDEA可能有终端中文乱码问题，可搜教程解决。
+
 用MySQL Workbench或者Command Line可查看数据库存储情况。
+
+## 开发指南
+
 ### 1. 环境搭建
 
 #### 安装Java 21
