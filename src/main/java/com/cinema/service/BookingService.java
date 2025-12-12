@@ -1,26 +1,56 @@
 package com.cinema.service;
 
 import com.cinema.model.*;
+import com.cinema.storage.MySQLDataStorage; // 引入 MySQL 存储
 import com.cinema.strategy.PricingStrategy;
-import com.cinema.storage.SimpleDataStorage;
 import com.cinema.exception.*;
 
-import java.util.List;
-import java.util.ArrayList;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 public class BookingService {
     private static BookingService instance;
     private final ConcurrentMap<String, Order> orders;
-    private final PricingStrategy pricingStrategy;
-    private final SimpleDataStorage dataStorage;
+
+    // 1. 引入策略模式 (定价)
+    private PricingStrategy pricingStrategy; // 不再是 final，以便运行时修改
+
+    // 2. 引入其他服务 (通知、显示)
+    private final NotificationService notificationService;
+    private final DisplayService displayService;
+
+    // 3. 切换数据存储
+    private final MySQLDataStorage mysqlDataStorage;
+    private final boolean useMySQL;
 
     private BookingService(PricingStrategy pricingStrategy) {
-        this.dataStorage = new SimpleDataStorage();
         this.orders = new ConcurrentHashMap<>();
         this.pricingStrategy = pricingStrategy;
+
+        // 初始化服务
+        this.notificationService = NotificationService.getInstance();
+        this.displayService = DisplayService.getInstance();
+
+        // 初始化数据库
+        MySQLDataStorage mysqlStorage = null;
+        boolean connected = false;
+        try {
+            mysqlStorage = new MySQLDataStorage();
+            System.out.println("✓ BookingService使用MySQL数据库存储");
+            connected = true;
+        } catch (Exception e) {
+            System.err.println("✗ MySQL连接失败: " + e.getMessage());
+            // 根据实际需求，这里可能需要抛出 RuntimeException 或切换到内存存储
+            // 保持原代码逻辑：连接失败则抛出异常
+            throw new RuntimeException("MySQL连接失败", e);
+        }
+        this.mysqlDataStorage = mysqlStorage;
+        this.useMySQL = connected;
+
         loadOrders();
         rebuildUserOrderRelations();
     }
@@ -34,204 +64,295 @@ public class BookingService {
 
     public static BookingService getInstance() {
         if (instance == null) {
+            // 异常信息调整，更清晰地提示未初始化
             throw new IllegalStateException("BookingService not initialized. Call getInstance(PricingStrategy) first.");
         }
         return instance;
     }
 
-    public Order createOrder(User user, Show show, List<String> seatIds) throws InvalidBookingException, SeatNotAvailableException {
-        if (show == null) {
-            throw new InvalidBookingException("场次不能为空");
-        }
-
-        if (user == null) {
-            throw new InvalidBookingException("用户不能为空");
-        }
-
-        if (seatIds == null || seatIds.isEmpty()) {
-            throw new InvalidBookingException("座位列表不能为空");
-        }
-
-        List<Seat> selectedSeats = new java.util.ArrayList<>();
-        StringBuilder bookingDetails = new StringBuilder();
-        bookingDetails.append("场次: ").append(show.getMovie().getTitle());
-        bookingDetails.append(", 座位: ");
-
-        for (String seatId : seatIds) {
-            String[] parts = seatId.split("-");
-            if (parts.length != 2) {
-                throw new InvalidBookingException("座位ID格式无效: " + seatId, 
-                    "期望格式: 行-列 (例如: 1-1)");
-            }
-
-            try {
-                int row = Integer.parseInt(parts[0]);
-                int col = Integer.parseInt(parts[1]);
-                Seat seat = show.getSeat(row, col);
-                
-                if (seat == null) {
-                    throw new SeatNotAvailableException(seatId, "座位不存在");
-                }
-                
-                if (!seat.isAvailable()) {
-                    throw new SeatNotAvailableException(seatId, "座位已被预订");
-                }
-                
-                selectedSeats.add(seat);
-                bookingDetails.append(seatId).append(" ");
-            } catch (NumberFormatException e) {
-                throw new InvalidBookingException("座位ID格式无效: " + seatId, 
-                    "行和列必须是数字", e);
-            }
-        }
-
-        if (selectedSeats.isEmpty()) {
-            throw new InvalidBookingException("没有选择有效的座位", bookingDetails.toString());
-        }
-
-        // Lock seats temporarily
-        for (Seat seat : selectedSeats) {
-            seat.lock();
-        }
-
-        Order order = new Order(
-            "ORD-" + System.currentTimeMillis(),
-            show,
-            selectedSeats,
-            java.time.LocalDateTime.now(),
-            Order.OrderStatus.PENDING
-        );
-
-        orders.put(order.getOrderId(), order);
-        order.setUser(user);
-        user.addOrder(order);
-        saveOrder(order);
-
-        return order;
-    }
-
-    public void processPayment(Order order) throws PaymentFailedException {
-        if (order == null) {
-            throw new PaymentFailedException("", 0.0, "未知", "订单不能为空");
-        }
-
-        if (!orders.containsKey(order.getOrderId())) {
-            throw new PaymentFailedException(order.getOrderId(), order.getTotalAmount(), "未知", "订单不存在");
-        }
-
-        if (order.getStatus() != Order.OrderStatus.PENDING) {
-            throw new PaymentFailedException(order.getOrderId(), order.getTotalAmount(), "未知", 
-                "订单状态不是待支付状态，无法支付");
-        }
-
-        // Process payment logic would go here
-        boolean paymentSuccessful = true; // Simulate successful payment
-        String paymentMethod = "支付宝"; // Simulate payment method
-
-        if (paymentSuccessful) {
-            order.processPayment();
-            
-            // Mark seats as sold
-            for (Seat seat : order.getSeats()) {
-                seat.sell();
-            }
-            
-            saveOrder(order);
-        } else {
-            // Unlock seats if payment fails
-            for (Seat seat : order.getSeats()) {
-                seat.unlock();
-            }
-            throw new PaymentFailedException(order.getOrderId(), order.getTotalAmount(), paymentMethod, 
-                "支付处理失败，请检查支付信息");
-        }
-    }
-
-    public void cancelOrder(Order order) throws InvalidBookingException {
-        if (order == null) {
-            throw new InvalidBookingException("订单不能为空");
-        }
-
-        if (!orders.containsKey(order.getOrderId())) {
-            throw new InvalidBookingException("订单不存在", "订单号: " + order.getOrderId());
-        }
-
-        if (order.getStatus() == Order.OrderStatus.PAID) {
-            // Refund logic would go here
-            boolean refundSuccessful = true; // Simulate successful refund
-            
-            if (refundSuccessful) {
-                order.refund();
-                // Unlock seats
-                for (Seat seat : order.getSeats()) {
-                    seat.unlock();
-                }
-                saveOrder(order);
-            } else {
-                throw new InvalidBookingException("退款失败", "订单号: " + order.getOrderId());
-            }
-        } else if (order.getStatus() == Order.OrderStatus.PENDING) {
-            order.cancel();
-            // Unlock seats
-            for (Seat seat : order.getSeats()) {
-                seat.unlock();
-            }
-            saveOrder(order);
-        } else if (order.getStatus() == Order.OrderStatus.CANCELLED) {
-            throw new InvalidBookingException("订单已经取消", "订单号: " + order.getOrderId());
-        } else {
-            throw new InvalidBookingException("无法取消此状态的订单", 
-                "订单号: " + order.getOrderId() + ", 状态: " + order.getStatus());
-        }
-    }
-
-    public Order getOrder(String orderId) {
-        return orders.get(orderId);
-    }
-
-    public List<Order> getAllOrders() {
-        return new java.util.ArrayList<>(orders.values());
-    }
-
-    public void updateOrder(Order order) {
-        if (order != null && orders.containsKey(order.getOrderId())) {
-            orders.put(order.getOrderId(), order);
-            saveOrder(order);
-        }
-    }
-
+    // ================== 定价策略计算/修改 ==================
+    /**
+     * 使用策略模式计算票价
+     */
     public double calculateSeatPrice(Show show, Seat seat) {
+        // 委托给具体的策略类
         return pricingStrategy.calculatePrice(show, seat);
+    }
+
+    /**
+     * 动态设置新的定价策略
+     */
+    public void setPricingStrategy(PricingStrategy newPricingStrategy) {
+        this.pricingStrategy = newPricingStrategy;
+        // 触发通知服务
+        notificationService.sendBroadcast("系统定价策略已更为: " + newPricingStrategy.getClass().getSimpleName());
     }
 
     public PricingStrategy getPricingStrategy() {
         return pricingStrategy;
     }
-    
-    public void setPricingStrategy(PricingStrategy newPricingStrategy) {
-        // 由于是单例模式，我们需要通过反射来修改pricingStrategy字段
-        try {
-            java.lang.reflect.Field field = BookingService.class.getDeclaredField("pricingStrategy");
-            field.setAccessible(true);
-            field.set(instance, newPricingStrategy);
-            field.setAccessible(false);
-        } catch (Exception e) {
-            throw new RuntimeException("无法更改定价策略: " + e.getMessage());
+
+    // ================== 订单管理：创建 ==================
+    public Order createOrder(User user, Show show, List<String> seatIds) throws InvalidBookingException, SeatNotAvailableException {
+        // 简化校验，采用上段代码的校验逻辑
+        if (show == null || user == null || seatIds == null || seatIds.isEmpty()) {
+            throw new InvalidBookingException("参数无效");
+        }
+
+        List<Seat> selectedSeats = new ArrayList<>();
+        // 锁座逻辑
+        for (String seatId : seatIds) {
+            Seat seat = show.getSeat(seatId);
+            if (seat == null || !seat.isAvailable()) {
+                throw new SeatNotAvailableException(seatId, "座位不可用");
+            }
+            // 暂时锁定座位
+            seat.lock();
+            selectedSeats.add(seat);
+        }
+
+        Order order = new Order(
+                "ORD-" + System.currentTimeMillis(),
+                show,
+                selectedSeats,
+                LocalDateTime.now(),
+                Order.OrderStatus.PENDING
+        );
+
+        order.setUser(user);
+        orders.put(order.getOrderId(), order);
+        user.addOrder(order);
+
+        // 持久化订单和场次状态
+        saveOrder(order);
+        CinemaManager.getInstance().saveShows();
+
+        // 3. 触发通知服务
+        notificationService.sendOrderUpdate(user, order, "订单已创建，请在15分钟内支付。");
+
+        return order;
+    }
+
+    // ================== 订单管理：处理/支付 ==================
+    public void processPayment(Order order) throws PaymentFailedException {
+        if (order == null || order.getStatus() != Order.OrderStatus.PENDING) {
+            throw new PaymentFailedException(order == null ? "" : order.getOrderId(), 0, "Unknown", "订单状态无效或已处理");
+        }
+
+        // 模拟支付逻辑
+        boolean success = true;
+
+        if (success) {
+            order.setStatus(Order.OrderStatus.PAID);
+            for (Seat seat : order.getSeats()) {
+                seat.sell(); // 标记为已售出
+            }
+            saveOrder(order);
+            CinemaManager.getInstance().saveShows();
+
+            // 3. 触发通知服务
+            notificationService.sendOrderUpdate(order.getUser(), order, "支付成功！您的座位已锁定。");
+
+            // 4. 触发显示服务 (更新座位图)
+            displayService.updateSeatDisplay(order.getShow());
+
+        } else {
+            // 支付失败时应释放座位
+            for (Seat seat : order.getSeats()) {
+                seat.unlock();
+            }
+            throw new PaymentFailedException(order.getOrderId(), order.getTotalAmount(), "Online", "支付被拒绝");
         }
     }
-    
+
+    // ================== 订单管理：取消/退款 ==================
+    public void cancelOrder(Order order) throws InvalidBookingException {
+        if (order == null) throw new InvalidBookingException("订单为空");
+
+        if (!orders.containsKey(order.getOrderId())) {
+            throw new InvalidBookingException("订单不存在", "订单号: " + order.getOrderId());
+        }
+
+        // 统一处理 PENDING, PAID 状态的取消
+        if (order.getStatus() == Order.OrderStatus.CANCELLED || order.getStatus() == Order.OrderStatus.REFUNDED) {
+            throw new InvalidBookingException("订单已经取消或已退款", "订单号: " + order.getOrderId());
+        }
+
+        boolean isRefund = (order.getStatus() == Order.OrderStatus.PAID);
+
+        if (isRefund) {
+            order.setStatus(Order.OrderStatus.REFUNDED);
+        } else if (order.getStatus() == Order.OrderStatus.PENDING || order.getStatus() == Order.OrderStatus.RESERVED) {
+            order.setStatus(Order.OrderStatus.CANCELLED);
+        } else {
+            throw new InvalidBookingException("无法取消此状态的订单", "订单号: " + order.getOrderId() + ", 状态: " + order.getStatus());
+        }
+
+        // 释放座位
+        for (Seat seat : order.getSeats()) {
+            seat.unlock();
+        }
+
+        saveOrder(order);
+        CinemaManager.getInstance().saveShows(); // 保存场次状态
+
+        // 3. 触发通知服务
+        String msg = isRefund ? "退票成功，款项将原路返回。" : "订单已取消。";
+        notificationService.sendOrderUpdate(order.getUser(), order, msg);
+
+        // 4. 触发显示服务 (座位变回空闲)
+        displayService.updateSeatDisplay(order.getShow());
+    }
+
+    // ================== 订单管理：查询 ==================
+    public Order getOrder(String orderId) {
+        return orders.get(orderId);
+    }
+
+    public List<Order> getAllOrders() {
+        return new ArrayList<>(orders.values());
+    }
+
+    /**
+     * 获取指定用户的所有订单
+     */
+    public List<Order> getOrdersByUser(User user) {
+        if (user == null) {
+            return new ArrayList<>();
+        }
+        List<Order> userOrders = new ArrayList<>();
+        // 遍历内存中的所有订单，找到属于该用户的
+        for (Order order : orders.values()) {
+            if (order.getUser() != null && order.getUser().getId().equals(user.getId())) {
+                userOrders.add(order);
+            }
+        }
+        return userOrders;
+    }
+
+    // ================== 预订相关 (保留原有逻辑，但取消时会触发新服务) ==================
+    // 预订座位（锁定15分钟） - 逻辑与 createOrder 类似，但状态为 RESERVED
+    public Order reserveOrder(User user, Show show, List<String> seatIds)
+            throws InvalidBookingException, SeatNotAvailableException {
+        // ... (预订逻辑，略) ...
+        // 注意：原第一段代码没有这个方法，但第二段有，故保留，并确保 seat.lock() 被调用。
+
+        if (show == null || user == null || seatIds == null || seatIds.isEmpty()) {
+            throw new InvalidBookingException("参数无效");
+        }
+
+        List<Seat> selectedSeats = new ArrayList<>();
+        for (String seatId : seatIds) {
+            Seat seat = show.getSeat(seatId);
+            if (seat == null || !seat.isAvailable()) {
+                throw new SeatNotAvailableException(seatId, "座位不可用");
+            }
+            seat.lock(); // 锁定座位
+            selectedSeats.add(seat);
+        }
+
+        String orderId = "RESERVE-" + System.currentTimeMillis();
+        Order order = new Order(orderId, show, selectedSeats, LocalDateTime.now(), Order.OrderStatus.RESERVED);
+        order.setLockTime(LocalDateTime.now());
+        order.setUser(user);
+
+        orders.put(orderId, order);
+        user.addOrder(order);
+        saveOrder(order);
+        CinemaManager.getInstance().saveShows();
+
+        notificationService.sendOrderUpdate(user, order, "座位已预留，请在15分钟内支付。");
+        return order;
+    }
+
+    // 支付预订订单 - 逻辑与 processPayment 类似
+    public void processReservedOrderPayment(Order order) throws PaymentFailedException, InvalidBookingException {
+        if (order == null) {
+            throw new InvalidBookingException("订单不存在");
+        }
+
+        if (order.getStatus() != Order.OrderStatus.RESERVED) {
+            throw new InvalidBookingException("订单状态不是预订状态");
+        }
+
+        if (order.isExpired()) {
+            // 如果过期，视为支付失败，并触发取消逻辑 (释放座位等)
+            cancelOrder(order);
+            throw new PaymentFailedException(order.getOrderId(), order.getTotalAmount(), "Online", "预订已过期，请重新下单");
+        }
+
+        // 模拟支付成功
+        order.setStatus(Order.OrderStatus.PAID);
+        for (Seat seat : order.getSeats()) {
+            seat.sell(); // 确认座位（将锁定状态改为已售出）
+        }
+
+        saveOrder(order);
+        CinemaManager.getInstance().saveShows();
+
+        notificationService.sendOrderUpdate(order.getUser(), order, "支付成功！您的座位已锁定。");
+        displayService.updateSeatDisplay(order.getShow());
+    }
+
+    // 检查并处理过期的预订
+    public void checkExpiredOrders() {
+        // ... (保持原逻辑，并在过期时调用 notificationService 和 displayService) ...
+        List<Order> expiredOrders = new ArrayList<>();
+
+        for (Order order : orders.values()) {
+            // 检查PENDING 或 RESERVED 订单是否过期
+            if (order.isExpired() && (order.getStatus() == Order.OrderStatus.PENDING || order.getStatus() == Order.OrderStatus.RESERVED)) {
+                expiredOrders.add(order);
+            }
+        }
+
+        if (!expiredOrders.isEmpty()) {
+            for (Order order : expiredOrders) {
+                // 释放座位
+                for (Seat seat : order.getSeats()) {
+                    seat.unlock();
+                }
+
+                // 更新订单状态
+                order.setStatus(Order.OrderStatus.EXPIRED);
+
+                // 从用户订单列表中移除 (注意：第一段代码没有移除逻辑，此处沿用第二段代码的保留逻辑)
+                if (order.getUser() != null) {
+                    // 移除订单关联，但保留订单记录
+                    order.getUser().removeOrder(order);
+                }
+
+                // 持久化更新
+                saveOrder(order);
+                CinemaManager.getInstance().saveShows();
+
+                // 触发通知和显示服务
+                notificationService.sendOrderUpdate(order.getUser(), order, "订单因超时已自动取消。");
+                displayService.updateSeatDisplay(order.getShow());
+            }
+            // 批量保存订单和场次状态 (已在循环内 saveOrder 和 saveShows)
+        }
+    }
+
+    // ================== 数据持久化 (使用 MySQLDataStorage) ==================
     private void loadOrders() {
-        orders.putAll(dataStorage.loadOrders());
+        if (useMySQL) {
+            orders.putAll(mysqlDataStorage.loadOrders());
+        }
     }
-    
-    private void saveOrder(Order order) {
-        dataStorage.saveOrders(orders);
+
+    public void saveOrder(Order order) {
+        if (useMySQL) {
+            mysqlDataStorage.saveOrders(orders); // 简化处理，保存所有
+        }
     }
-    
+
     public void saveOrders() {
-        dataStorage.saveOrders(orders);
+        if (useMySQL) {
+            mysqlDataStorage.saveOrders(orders);
+        }
     }
-    
+
     private void rebuildUserOrderRelations() {
         CinemaManager cinemaManager = CinemaManager.getInstance();
         for (Order order : orders.values()) {
@@ -239,7 +360,6 @@ public class BookingService {
                 User user = cinemaManager.getUser(order.getUser().getId());
                 if (user != null) {
                     order.setUser(user);
-                    // 检查用户是否已经有这个订单，避免重复添加
                     if (!user.getOrders().contains(order)) {
                         user.addOrder(order);
                     }
@@ -247,113 +367,15 @@ public class BookingService {
             }
         }
     }
-    
-    // 预订座位（锁定15分钟）
-    public Order reserveOrder(User user, Show show, List<String> seatIds) 
-            throws InvalidBookingException, SeatNotAvailableException {
-        if (show == null) {
-            throw new InvalidBookingException("场次不能为空");
+
+    // ================== 关闭资源 ==================
+    /**
+     * 关闭数据库连接
+     */
+    public void shutdown() {
+        if (useMySQL && mysqlDataStorage != null) {
+            mysqlDataStorage.close();
+            System.out.println("✓ BookingService已关闭MySQL连接");
         }
-        
-        if (user == null) {
-            throw new InvalidBookingException("用户不能为空");
-        }
-        
-        if (seatIds == null || seatIds.isEmpty()) {
-            throw new InvalidBookingException("座位列表不能为空");
-        }
-        
-        // 检查座位可用性并锁定
-        List<Seat> selectedSeats = new ArrayList<>();
-        for (String seatId : seatIds) {
-            Seat seat = show.getSeat(seatId);
-            if (seat == null) {
-                throw new InvalidBookingException("座位不存在: " + seatId);
-            }
-            
-            if (!seat.isAvailable()) {
-                throw new SeatNotAvailableException("座位不可用: " + seatId, "座位已被预订或售出");
-            }
-            
-            // 锁定座位
-            seat.lock();
-            selectedSeats.add(seat);
-        }
-        
-        // 创建预订订单
-        String orderId = "ORDER-" + System.currentTimeMillis();
-        Order order = new Order(orderId, show, selectedSeats, LocalDateTime.now(), Order.OrderStatus.RESERVED);
-        order.setLockTime(LocalDateTime.now());
-        order.setUser(user);
-        
-        // 添加到订单列表
-        orders.put(orderId, order);
-        user.addOrder(order);
-        
-        // 锁定座位
-        for (Seat seat : selectedSeats) {
-            seat.lock();
-        }
-        
-        saveOrders();
-        return order;
-    }
-    
-    // 检查并处理过期的预订
-    public void checkExpiredOrders() {
-        List<Order> expiredOrders = new ArrayList<>();
-        
-        for (Order order : orders.values()) {
-            if (order.isExpired()) {
-                expiredOrders.add(order);
-            }
-        }
-        
-        for (Order order : expiredOrders) {
-            // 释放座位
-            for (Seat seat : order.getSeats()) {
-                seat.unlock();
-            }
-            
-            // 更新订单状态
-            order.setStatus(Order.OrderStatus.EXPIRED);
-            
-            // 从用户订单列表中移除
-            if (order.getUser() != null) {
-                order.getUser().removeOrder(order);
-            }
-            
-            // 从订单列表中移除
-            orders.remove(order.getOrderId());
-        }
-        
-        if (!expiredOrders.isEmpty()) {
-            saveOrders();
-        }
-    }
-    
-    // 支付预订订单
-    public void processReservedOrderPayment(Order order) throws PaymentFailedException, InvalidBookingException {
-        if (order == null) {
-            throw new InvalidBookingException("订单不存在");
-        }
-        
-        if (order.getStatus() != Order.OrderStatus.RESERVED) {
-            throw new InvalidBookingException("订单状态不是预订状态");
-        }
-        
-        if (order.isExpired()) {
-            throw new InvalidBookingException("预订已过期");
-        }
-        
-        // 更新订单状态为已支付
-        order.setStatus(Order.OrderStatus.PAID);
-        
-        // 确认座位（将锁定状态改为已售出）
-        for (Seat seat : order.getSeats()) {
-            seat.book();
-        }
-        
-        saveOrders();
     }
 }

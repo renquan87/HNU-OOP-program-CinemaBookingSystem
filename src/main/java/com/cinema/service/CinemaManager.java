@@ -17,9 +17,13 @@ public class CinemaManager {
     private final Map<String, ScreeningRoom> rooms;
     private final Map<String, Show> shows;
     private final Map<String, User> users;
-    private final SimpleDataStorage dataStorage;
-    private final MySQLDataStorage mysqlDataStorage;
+
+    private final SimpleDataStorage dataStorage; // 文件存储（降级/备份）
+    private final MySQLDataStorage mysqlDataStorage; // 数据库存储
     private final boolean useMySQL;
+
+    // 引入显示服务 (新增功能)
+    private final DisplayService displayService;
 
     private CinemaManager() {
         this.dataStorage = new SimpleDataStorage();
@@ -27,24 +31,26 @@ public class CinemaManager {
         this.rooms = new ConcurrentHashMap<>();
         this.shows = new ConcurrentHashMap<>();
         this.users = new ConcurrentHashMap<>();
-        
+
+        // 引入显示服务 (初始化)
+        this.displayService = DisplayService.getInstance();
+
         // 尝试使用MySQL，如果失败则使用文件存储
         boolean mysqlAvailable = false;
         MySQLDataStorage mysqlStorage = null;
         try {
             mysqlStorage = new MySQLDataStorage();
             mysqlAvailable = true;
-            System.out.println("使用MySQL数据库存储");
+            System.out.println("✓ CinemaManager使用MySQL数据库存储");
         } catch (Exception e) {
-            System.err.println("MySQL连接失败，使用文件存储: " + e.getMessage());
-            System.err.println("提示：如需使用MySQL，请下载MySQL Connector/J并添加到classpath");
+            System.err.println("✗ MySQL连接失败，使用文件存储: " + e.getMessage());
             mysqlStorage = null;
         }
         this.mysqlDataStorage = mysqlStorage;
         this.useMySQL = mysqlAvailable;
-        
+
         loadData();
-        
+
         // 如果没有数据，则初始化默认数据
         if (movies.isEmpty() && rooms.isEmpty() && users.isEmpty()) {
             initializeDefaultData();
@@ -58,51 +64,52 @@ public class CinemaManager {
         return instance;
     }
 
+    // ================== 初始化数据 (保留) ==================
     private void initializeDefaultData() {
         // Create default screening rooms
         ScreeningRoom room1 = new ScreeningRoom("ROOM-001", "标准厅1", 8, 12);
         ScreeningRoom room2 = new ScreeningRoom("ROOM-002", "VIP厅", 6, 10);
         ScreeningRoom room3 = new ScreeningRoom("ROOM-003", "IMAX厅", 10, 15);
-        
+
         rooms.put(room1.getId(), room1);
         rooms.put(room2.getId(), room2);
         rooms.put(room3.getId(), room3);
 
         // Create default movies
         Movie movie1 = new Movie(
-            "MOV-001", 
-            "流浪地球2", 
-            LocalDate.of(2023, 1, 22),
-            List.of("吴京", "刘德华", "李雪健"),
-            "郭帆",
-            173,
-            8.3,
-            "太阳即将毁灭，人类在地球表面建造出巨大的推进器，寻找新的家园。然而宇宙之路危机四伏，为了拯救地球，流浪地球时代的年轻人再次挺身而出。",
-            "科幻"
+                "MOV-001",
+                "流浪地球2",
+                LocalDate.of(2023, 1, 22),
+                List.of("吴京", "刘德华", "李雪健"),
+                "郭帆",
+                173,
+                8.3,
+                "太阳即将毁灭，人类在地球表面建造出巨大的推进器，寻找新的家园。然而宇宙之路危机四伏，为了拯救地球，流浪地球时代的年轻人再次挺身而出。",
+                "科幻"
         );
 
         Movie movie2 = new Movie(
-            "MOV-002",
-            "满江红",
-            LocalDate.of(2023, 1, 22),
-            List.of("沈腾", "易烊千玺", "张译", "雷佳音"),
-            "张艺谋",
-            159,
-            7.9,
-            "南宋绍兴年间，岳飞死后四年，秦桧率兵与金国会谈。会谈前夜，金国使者死在宰相驻地，所携密信也不翼而飞。",
-            "剧情/悬疑"
+                "MOV-002",
+                "满江红",
+                LocalDate.of(2023, 1, 22),
+                List.of("沈腾", "易烊千玺", "张译", "雷佳音"),
+                "张艺谋",
+                159,
+                7.9,
+                "南宋绍兴年间，岳飞死后四年，秦桧率兵与金国会谈。会谈前夜，金国使者死在宰相驻地，所携密信也不翼而飞。",
+                "剧情/悬疑"
         );
 
         Movie movie3 = new Movie(
-            "MOV-003",
-            "深海",
-            LocalDate.of(2023, 1, 22),
-            List.of("苏鑫", "王亭文", "滕奎兴"),
-            "田晓鹏",
-            112,
-            7.3,
-            "在大海的最深处，藏着所有秘密。一位现代少女参宿，在神秘海洋世界中追寻探索，邂逅了一段独特的生命旅程的故事。",
-            "动画/奇幻"
+                "MOV-003",
+                "深海",
+                LocalDate.of(2023, 1, 22),
+                List.of("苏鑫", "王亭文", "滕奎兴"),
+                "田晓鹏",
+                112,
+                7.3,
+                "在大海的最深处，藏着所有秘密。一位现代少女参宿，在神秘海洋世界中追寻探索，邂逅了一段独特的生命旅程的故事。",
+                "动画/奇幻"
         );
 
         movies.put(movie1.getId(), movie1);
@@ -111,37 +118,37 @@ public class CinemaManager {
 
         // Create default shows
         LocalDateTime now = LocalDateTime.now();
-        
+
         Show show1 = new Show(
-            "SHOW-001",
-            movie1,
-            room1,
-            now.plusDays(1).withHour(14).withMinute(30),
-            45.0
+                "SHOW-001",
+                movie1,
+                room1,
+                now.plusDays(1).withHour(14).withMinute(30),
+                45.0
         );
 
         Show show2 = new Show(
-            "SHOW-002",
-            movie1,
-            room1,
-            now.plusDays(1).withHour(19).withMinute(0),
-            55.0
+                "SHOW-002",
+                movie1,
+                room1,
+                now.plusDays(1).withHour(19).withMinute(0),
+                55.0
         );
 
         Show show3 = new Show(
-            "SHOW-003",
-            movie2,
-            room2,
-            now.plusDays(1).withHour(15).withMinute(0),
-            60.0
+                "SHOW-003",
+                movie2,
+                room2,
+                now.plusDays(1).withHour(15).withMinute(0),
+                60.0
         );
 
         Show show4 = new Show(
-            "SHOW-004",
-            movie3,
-            room3,
-            now.plusDays(2).withHour(13).withMinute(30),
-            50.0
+                "SHOW-004",
+                movie3,
+                room3,
+                now.plusDays(2).withHour(13).withMinute(30),
+                50.0
         );
 
         shows.put(show1.getId(), show1);
@@ -165,12 +172,18 @@ public class CinemaManager {
                 User.UserRole.ADMIN
         );
         users.put(admin.getId(), admin);
+
+        saveAllData(); // 初始化后保存数据
     }
 
+
+    // ================== 电影管理 (集成 DisplayService) ==================
     public void addMovie(Movie movie) {
         if (movie != null && movie.getId() != null) {
             movies.put(movie.getId(), movie);
             saveMovies();
+            // 触发显示更新
+            displayService.updateMovieDisplay(movie, "新增上映");
         }
     }
 
@@ -178,23 +191,32 @@ public class CinemaManager {
         Movie movie = movies.remove(movieId);
         if (movie != null) {
             // Remove all shows for this movie
-            Map<LocalDate, List<Show>> allShows = movie.getAllShows();
-            for (List<Show> showList : allShows.values()) {
-                for (Show show : showList) {
-                    shows.remove(show.getId());
+            List<Show> showsToRemove = new ArrayList<>();
+            for (Show show : shows.values()) {
+                if (show.getMovieId().equals(movieId)) {
+                    showsToRemove.add(show);
                 }
             }
+            for (Show show : showsToRemove) {
+                shows.remove(show.getId());
+            }
+
             saveMovies();
             saveShows();
+            // 触发显示更新
+            displayService.updateMovieDisplay(movie, "下架");
         }
     }
 
+    // ================== 场次管理 (集成 DisplayService) ==================
     public void addShow(Show show) {
         if (show != null && show.getId() != null) {
             shows.put(show.getId(), show);
             show.getMovie().addShow(show.getStartTime().toLocalDate(), show);
             saveShows();
             saveMovies();
+            // 触发显示更新（更新该场次的座位图显示）
+            displayService.updateSeatDisplay(show);
         }
     }
 
@@ -204,8 +226,12 @@ public class CinemaManager {
             show.getMovie().removeShow(show.getStartTime().toLocalDate(), show);
             saveShows();
             saveMovies();
+            // 触发显示更新（移除该场次的座位图显示）
+            displayService.updateSeatDisplay(show);
         }
     }
+
+    // ================== 影厅/用户管理 (保留原逻辑) ==================
 
     public void addScreeningRoom(ScreeningRoom room) {
         if (room != null && room.getId() != null) {
@@ -230,6 +256,8 @@ public class CinemaManager {
         users.remove(userId);
         saveUsers();
     }
+
+    // ================== 查询方法 (保留) ==================
 
     public Movie getMovie(String movieId) {
         return movies.get(movieId);
@@ -289,18 +317,20 @@ public class CinemaManager {
     public List<Show> searchShows(String movieTitle, LocalDate date) {
         List<Show> matchingShows = new ArrayList<>();
         for (Show show : shows.values()) {
-            boolean titleMatch = movieTitle == null || movieTitle.isEmpty() || 
-                               show.getMovieTitle().contains(movieTitle);
-            boolean dateMatch = date == null || 
-                              show.getStartTime().toLocalDate().equals(date);
-            
+            boolean titleMatch = movieTitle == null || movieTitle.isEmpty() ||
+                    show.getMovieTitle().contains(movieTitle);
+            boolean dateMatch = date == null ||
+                    show.getStartTime().toLocalDate().equals(date);
+
             if (titleMatch && dateMatch) {
                 matchingShows.add(show);
             }
         }
         return matchingShows;
     }
-    
+
+    // ================== 数据持久化 (保留) ==================
+
     private void loadData() {
         if (useMySQL && mysqlDataStorage != null) {
             movies.putAll(mysqlDataStorage.loadMovies());
@@ -313,62 +343,71 @@ public class CinemaManager {
             shows.putAll(dataStorage.loadShows());
             users.putAll(dataStorage.loadUsers());
         }
-        
-        // 重建电影和场次的关系
-        // 由于使用JOIN查询已经加载了关联对象，这里不再需要重建
-        
-        // 重建用户和订单的关系（延迟到BookingService初始化后）
-        // 这个关系重建将在BookingService初始化后完成
+        // 重建关系在对象加载时完成
     }
-    
-    private void saveMovies() {
+
+    public void saveMovies() {
         if (useMySQL && mysqlDataStorage != null) {
             mysqlDataStorage.saveMovies(movies);
         } else {
             dataStorage.saveMovies(movies);
         }
     }
-    
-    private void saveRooms() {
+
+    public void saveRooms() {
         if (useMySQL && mysqlDataStorage != null) {
             mysqlDataStorage.saveScreeningRooms(rooms);
         } else {
             dataStorage.saveScreeningRooms(rooms);
         }
     }
-    
-    private void saveShows() {
+
+    public void saveShows() {
         if (useMySQL && mysqlDataStorage != null) {
             mysqlDataStorage.saveShows(shows);
         } else {
             dataStorage.saveShows(shows);
         }
     }
-    
-    private void saveUsers() {
+
+    public void saveUsers() {
         if (useMySQL && mysqlDataStorage != null) {
             mysqlDataStorage.saveUsers(users);
         } else {
             dataStorage.saveUsers(users);
         }
     }
-    
+
+    /**
+     * 保存所有核心数据，包括订单数据
+     */
     public void saveAllData() {
         saveMovies();
         saveRooms();
         saveShows();
         saveUsers();
-        BookingService.getInstance().saveOrders();
+        // 尝试获取 BookingService 实例并保存订单
+        try {
+            BookingService.getInstance().saveOrders();
+        } catch (IllegalStateException e) {
+            System.err.println("BookingService 未初始化，跳过订单保存。");
+        }
     }
-    
+
     public void backupData() {
         dataStorage.backupData();
     }
-    
+
+    /**
+     * 关闭资源，包括保存数据和关闭数据库连接
+     */
     public void shutdown() {
+        System.out.println("正在关闭 CinemaManager...");
         saveAllData();
         if (useMySQL && mysqlDataStorage != null) {
             mysqlDataStorage.close();
+            System.out.println("✓ MySQL 连接已关闭。");
         }
+        // 由于 DisplayService 是单例，其资源的释放应在其自身的 shutdown 方法中处理（如果需要）
     }
 }
