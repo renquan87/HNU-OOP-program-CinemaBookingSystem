@@ -36,6 +36,10 @@ public class AuthController {
         // 核心修改：校验密码
         if (user != null && user.getPassword() != null && user.getPassword().equals(request.password)) {
             Map<String, Object> data = new HashMap<>();
+
+            // [关键修改] 必须返回 userId，因为下单接口需要它！
+            data.put("userId", user.getId());
+
             data.put("username", user.getName());
             data.put("accessToken", "fake-token-" + user.getId());
             data.put("roles", user.isAdmin() ? new String[]{"admin"} : new String[]{"common"});
