@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import com.cinema.ws.SeatWebSocketServer;
 
 public class BookingService {
     private static BookingService instance;
@@ -127,9 +128,10 @@ public class BookingService {
         saveOrder(order);
         CinemaManager.getInstance().saveShows();
 
-        // 3. 触发通知服务
-        notificationService.sendOrderUpdate(user, order, "订单已创建，请在15分钟内支付。");
+        // 🔔 [新增] 广播通知：告诉该场次的所有人，座位变了
+        SeatWebSocketServer.fireUpdate(show.getId(), "UPDATE"); // 发送简单的更新信号
 
+        notificationService.sendOrderUpdate(user, order, "订单已创建...");
         return order;
     }
 
@@ -150,11 +152,14 @@ public class BookingService {
             saveOrder(order);
             CinemaManager.getInstance().saveShows();
 
+            SeatWebSocketServer.fireUpdate(order.getShow().getId(), "UPDATE");
+
             // 3. 触发通知服务
             notificationService.sendOrderUpdate(order.getUser(), order, "支付成功！您的座位已锁定。");
 
             // 4. 触发显示服务 (更新座位图)
             displayService.updateSeatDisplay(order.getShow());
+
 
         } else {
             // 支付失败时应释放座位
@@ -195,6 +200,8 @@ public class BookingService {
 
         saveOrder(order);
         CinemaManager.getInstance().saveShows(); // 保存场次状态
+
+        SeatWebSocketServer.fireUpdate(order.getShow().getId(), "UPDATE");
 
         // 3. 触发通知服务
         String msg = isRefund ? "退票成功，款项将原路返回。" : "订单已取消。";
