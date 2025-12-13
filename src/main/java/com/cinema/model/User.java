@@ -8,6 +8,7 @@ public class User implements java.io.Serializable {
     private static final long serialVersionUID = 1L;
     private String id;
     private String name;
+    private String password;
     private String phone;
     private String email;
     private List<Order> orders;
@@ -18,21 +19,32 @@ public class User implements java.io.Serializable {
         ADMIN
     }
 
-    public User(String id, String name, String phone, String email, UserRole role) {
+    // [修改] 全参构造函数，增加 password
+    public User(String id, String name, String password, String phone, String email, UserRole role) {
         this.id = id;
         this.name = name;
+        this.password = password; // [新增]
         this.phone = phone;
         this.email = email;
         this.role = role;
         this.orders = new ArrayList<>();
     }
 
-    public User(String id, String name, String phone, String email) {
-        this(id, name, phone, email, UserRole.CUSTOMER);
+    // [修改] 简化构造函数
+    public User(String id, String name, String password, String phone, String email) {
+        this(id, name, password, phone, email, UserRole.CUSTOMER);
     }
 
     public String getId() {
         return id;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 
     public void setId(String id) {
@@ -87,7 +99,7 @@ public class User implements java.io.Serializable {
         List<Show> matchingShows = new ArrayList<>();
         for (Order order : orders) {
             Show show = order.getShow();
-            if (show.getMovie().getTitle().contains(movieTitle) && 
+            if (show.getMovie().getTitle().contains(movieTitle) &&
                 show.getStartTime().toLocalDate().equals(date.toLocalDate())) {
                 matchingShows.add(show);
             }
