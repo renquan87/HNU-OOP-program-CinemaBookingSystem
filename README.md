@@ -544,7 +544,7 @@ mvn spring-boot:run
 
 # 再启动一个终端
 cd web
-npm run dev
+pnpm run dev
  
 ```
 
