@@ -527,12 +527,25 @@ CinemaBookingSystem/
 mvn dependency:copy-dependencies -DoutputDirectory=lib # 依赖
 mvn clean compile # 编译
 
+# 安装前端依赖
+cd web
+pnpm install
+cd ..
 
 # 初始化数据库（支持从命令行直接传入密码）
 java -cp "lib/*;target/classes" com.cinema.DatabaseInitializer <your_password>
 
-# 运行系统
+# 运行命令行版本系统
 java -cp "lib/*;target/classes" com.cinema.Main <your_password>
+
+# ====网页版====
+# 开启后端
+mvn spring-boot:run
+
+# 再启动一个终端
+cd web
+npm run dev
+ 
 ```
 
 最好直接使用系统的命令行，简单明了。
