@@ -173,7 +173,7 @@ public class CinemaManager {
         User testUser = new User(
             "test",          // 用户 ID（唯一）
             "test",              // 用户名
-            "123456",
+            "test1234",
             "18800000000",       // 手机号（随便写一个）
             "test@cinema.com",   // 邮箱
             User.UserRole.CUSTOMER  // 普通用户角色
