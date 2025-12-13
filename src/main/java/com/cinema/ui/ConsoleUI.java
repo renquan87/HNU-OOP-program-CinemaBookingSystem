@@ -51,7 +51,9 @@ public class ConsoleUI {
         // 添加关闭钩子，确保程序退出时保存数据
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
-                cinemaManager.saveAllData();
+                // 只保存关键数据，避免卡死
+                cinemaManager.saveMovies();
+                cinemaManager.saveUsers();
                 System.out.println("\n数据已自动保存");
             } catch (Exception e) {
                 System.err.println("自动保存数据时出错: " + e.getMessage());
@@ -219,6 +221,9 @@ public class ConsoleUI {
 
     public void start() {
         try {
+            // 系统启动时检查并处理过期订单
+            bookingService.checkExpiredOrders();
+            
             while (true) {
                 clearScreen();
                 printTitle("欢迎使用电影院购票系统");
@@ -242,12 +247,13 @@ public class ConsoleUI {
                 currentUser = null;
             }
         } finally {
-            // 确保在程序退出前保存所有数据
+            // 确保在程序退出前保存关键数据
             try {
-                cinemaManager.saveAllData();
+                cinemaManager.saveMovies();
+                cinemaManager.saveUsers();
                 clearScreen();
                 printTitle("感谢使用电影院购票系统");
-                printSuccess("所有数据已保存");
+                printSuccess("关键数据已保存");
                 printColored(YELLOW, "再见！\n");
             } catch (Exception e) {
                 System.err.println("保存数据时出错: " + e.getMessage());
@@ -286,7 +292,8 @@ public class ConsoleUI {
                     performRegister();
                     break;
                 case "0":
-                    System.exit(0); // 退出整个程序
+                    System.out.println("感谢使用电影院购票系统！");
+                    System.exit(0); // 直接退出程序
                 default:
                     printError("无效选择，请输入0-3之间的数字");
                     pressEnterToContinue();
@@ -968,10 +975,14 @@ public class ConsoleUI {
         clearScreen();
         printTitle("我的订单");
         
+        // 刷新订单数据，确保与数据库同步
+        bookingService.refreshOrders();
+        
         // 先检查过期订单
         bookingService.checkExpiredOrders();
         
-        List<Order> orders = currentUser.getOrders();
+        // 获取用户的最新订单
+        List<Order> orders = bookingService.getOrdersByUser(currentUser);
         
         if (orders.isEmpty()) {
             printWarning("暂无订单");
@@ -1021,8 +1032,13 @@ public class ConsoleUI {
                         printColored(YELLOW + BOLD, "待支付");
                         break;
                     case RESERVED:
+                        long remainingMinutes = order.getRemainingLockMinutes();
                         printColored(ORANGE + BOLD, "已预订");
-                        printColored(ORANGE, " (剩余" + order.getRemainingLockMinutes() + "分钟)");
+                        if (remainingMinutes > 0) {
+                            printColored(ORANGE, " (剩余" + remainingMinutes + "分钟)");
+                        } else {
+                            printColored(RED, " (已过期)");
+                        }
                         reservableOrders.put(String.valueOf(displayIndex - 1), order);
                         break;
                     case PAID:
@@ -1057,35 +1073,49 @@ public class ConsoleUI {
                 printlnColored(WHITE, order.getOrderId() + " - " + order.getShow().getMovie().getTitle());
             }
             
-            printColored(YELLOW, "\n输入订单编号进行支付，或按回车键返回: ");
+            printColored(YELLOW, "\n输入订单编号或序号进行支付（如：1 或 ORD-001），或按回车键返回: ");
             String choice = readLine();
             
-            if (!choice.isEmpty() && reservableOrders.containsKey(choice)) {
-                Order selectedOrder = reservableOrders.get(choice);
-                
-                printSeparator('-', 60);
-                printlnColored(CYAN, "订单详情：");
-                printlnColored(CYAN, "订单号: " + selectedOrder.getOrderId());
-                printlnColored(CYAN, "电影: " + selectedOrder.getShow().getMovie().getTitle());
-                printlnColored(CYAN, "座位: " + selectedOrder.getSeatIds());
-                printlnColored(CYAN, "金额: ");
-                printColored(YELLOW + BOLD, "￥" + selectedOrder.getTotalAmount());
-                printlnColored(ORANGE, "剩余锁定时间: " + selectedOrder.getRemainingLockMinutes() + " 分钟");
-                
-                printColored(YELLOW, "\n确认支付？(Y/N): ");
-                String confirm = readLine();
-                
-                if (confirm.equalsIgnoreCase("Y")) {
-                    try {
-                        bookingService.processReservedOrderPayment(selectedOrder);
-                        printSuccess("支付成功！订单已完成。");
-                    } catch (PaymentFailedException e) {
-                        printError("支付失败: " + e.getMessage());
-                    } catch (InvalidBookingException e) {
-                        printError("支付失败: " + e.getMessage());
-                    }
+            Order selectedOrder = null;
+            if (!choice.isEmpty()) {
+                // 先尝试按序号查找
+                if (reservableOrders.containsKey(choice)) {
+                    selectedOrder = reservableOrders.get(choice);
                 } else {
-                    printInfo("支付已取消");
+                    // 再尝试按订单号查找
+                    for (Order order : reservableOrders.values()) {
+                        if (order.getOrderId().equalsIgnoreCase(choice)) {
+                            selectedOrder = order;
+                            break;
+                        }
+                    }
+                }
+                
+                if (selectedOrder != null) {
+                    printSeparator('-', 60);
+                    printlnColored(CYAN, "订单详情：");
+                    printlnColored(CYAN, "订单号: " + selectedOrder.getOrderId());
+                    printlnColored(CYAN, "电影: " + selectedOrder.getShow().getMovie().getTitle());
+                    printlnColored(CYAN, "座位: " + selectedOrder.getSeatIds());
+                    printlnColored(CYAN, "金额: ");
+                    printColored(YELLOW + BOLD, "￥" + selectedOrder.getTotalAmount());
+                    printlnColored(ORANGE, "剩余锁定时间: " + selectedOrder.getRemainingLockMinutes() + " 分钟");
+                    
+                    printColored(YELLOW, "\n确认支付？(Y/N): ");
+                    String confirm = readLine();
+                    
+                    if (confirm.equalsIgnoreCase("Y")) {
+                        try {
+                            bookingService.processReservedOrderPayment(selectedOrder);
+                            printSuccess("支付成功！订单已完成。");
+                        } catch (PaymentFailedException e) {
+                            printError("支付失败: " + e.getMessage());
+                        } catch (InvalidBookingException e) {
+                            printError("支付失败: " + e.getMessage());
+                        }
+                    } else {
+                        printInfo("支付已取消");
+                    }
                 }
             }
         }
@@ -1523,7 +1553,14 @@ public class ConsoleUI {
         }
         
         System.out.print("请输入开始时间 (YYYY-MM-DD HH:MM): ");
-        LocalDateTime startTime = LocalDateTime.parse(readLine(), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        String timeStr = readLine();
+        LocalDateTime startTime;
+        try {
+            startTime = LocalDateTime.parse(timeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        } catch (Exception e) {
+            System.out.println("时间格式错误，请使用格式：YYYY-MM-DD HH:MM（如：2025-12-11 19:00）");
+            return;
+        }
         
         System.out.print("请输入基础票价: ");
         double basePrice = Double.parseDouble(readLine());
@@ -1601,6 +1638,9 @@ public class ConsoleUI {
                     break;
                 case PENDING:
                     pendingOrders++;
+                    break;
+                case RESERVED:
+                    pendingOrders++; // 预订订单也算作待支付
                     break;
                 case CANCELLED:
                     cancelledOrders++;

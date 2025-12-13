@@ -48,6 +48,8 @@ public class Main {
             try {
                 CinemaManager cinemaManager = CinemaManager.getInstance();
                 cinemaManager.shutdown();
+                BookingService bookingService = BookingService.getInstance(null);
+                bookingService.shutdown();
             } catch (Exception e) {
                 System.err.println("关闭数据库连接时出错: " + e.getMessage());
             }
