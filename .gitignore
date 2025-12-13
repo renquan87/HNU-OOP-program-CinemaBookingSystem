@@ -59,3 +59,5 @@ logs/
 # 配置文件（根据实际情况选择是否忽略）
 # application.properties
 # application.yml
+
+web/node_modules
