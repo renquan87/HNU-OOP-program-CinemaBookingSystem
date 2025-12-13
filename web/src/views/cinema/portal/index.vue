@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, onUnmounted, watch } from "vue";
 import { getMovieList } from "@/api/cinema/movie";
 import {
   getShowList,
@@ -9,7 +9,6 @@ import {
   getUserOrders,
   refundOrder
 } from "@/api/cinema/index";
-// 统一使用 ElNotification 和 ElMessageBox
 import { ElNotification, ElMessageBox } from "element-plus";
 import { useUserStoreHook } from "@/store/modules/user";
 
@@ -31,8 +30,12 @@ const orderDialogVisible = ref(false);
 const myOrders = ref([]);
 const orderLoading = ref(false);
 
-// ================= 核心计算 (新增) =================
-// 将扁平的座位数组转换为按行分组的结构: { 1: [Seat, Seat], 2: [Seat, Seat] }
+// WebSocket 实例
+let ws: WebSocket | null = null;
+
+// ================= 核心计算 =================
+
+// 1. 修复座位布局：按行分组
 const seatsByRow = computed(() => {
   const rows: Record<number, any[]> = {};
   seatList.value.forEach((seat: any) => {
@@ -48,21 +51,81 @@ const seatsByRow = computed(() => {
   return rows;
 });
 
-// 计算总价（体现定价策略）
+// 2. 计算总价（防止浮点数精度问题）
 const totalPrice = computed(() => {
   let total = 0;
   selectedSeats.value.forEach(id => {
     const seat = seatList.value.find((s: any) => s.id === id);
     if (seat) total += seat.price;
   });
-  // 🔴 关键修复：计算完成后，也进行四舍五入，避免前端累加浮点数误差
-  const roundedPrice = Math.round(total * 100);
-  return roundedPrice / 100.0;
+  return Math.round(total * 100) / 100;
+});
+
+// ================= WebSocket 实时逻辑 =================
+
+const initWebSocket = (showId: string) => {
+  // 断开旧连接
+  if (ws) ws.close();
+
+  // 建立新连接 (注意端口号需与后端一致，这里假设是 8081)
+  ws = new WebSocket(`ws://localhost:8081/ws/seats/${showId}`);
+
+  ws.onopen = () => {
+    console.log(`[WebSocket] 已连接场次: ${showId}`);
+  };
+
+  ws.onmessage = (event) => {
+    if (event.data === "UPDATE") {
+      console.log("[WebSocket] 收到座位更新通知");
+      refreshSeatStatus(showId);
+    }
+  };
+
+  ws.onclose = () => {
+    console.log("[WebSocket] 连接已断开");
+  };
+};
+
+// 静默刷新座位状态
+const refreshSeatStatus = async (showId: string) => {
+  const res = await getShowSeats(showId);
+  if (res.success) {
+    seatList.value = res.data;
+    // 检查已选座位是否被抢
+    const takenSeats = res.data.filter(
+      (s: any) =>
+        selectedSeats.value.includes(s.id) && s.status !== "available"
+    );
+
+    if (takenSeats.length > 0) {
+      takenSeats.forEach((s: any) => {
+        const idx = selectedSeats.value.indexOf(s.id);
+        if (idx !== -1) selectedSeats.value.splice(idx, 1);
+      });
+      ElNotification({
+        title: "手慢了",
+        message: "您选择的部分座位已被其他人锁定",
+        type: "warning"
+      });
+    }
+  }
+};
+
+// 监听弹窗关闭，断开连接
+watch(seatDialogVisible, newVal => {
+  if (!newVal && ws) {
+    ws.close();
+    ws = null;
+  }
+});
+
+onUnmounted(() => {
+  if (ws) ws.close();
 });
 
 // ================= 业务逻辑 =================
 
-// 1. 加载电影
+// 加载电影
 const loadMovies = async () => {
   loading.value = true;
   try {
@@ -73,7 +136,7 @@ const loadMovies = async () => {
   }
 };
 
-// 2. 打开购票选座
+// 打开购票选座
 const handleBuyTicket = async (movie: any) => {
   currentMovie.value = movie;
   const res = await getShowList(movie.id);
@@ -90,21 +153,26 @@ const handleBuyTicket = async (movie: any) => {
   currentShowId.value = res.data[0].id;
   await loadSeats(res.data[0].id);
   seatDialogVisible.value = true;
+
+  // 启动 WebSocket
+  initWebSocket(currentShowId.value);
 };
 
-// 3. 切换场次
+// 切换场次
 const handleShowChange = async (val: string) => {
   await loadSeats(val);
+  // 切换 WebSocket
+  initWebSocket(val);
 };
 
-// 4. 加载座位
+// 加载座位
 const loadSeats = async (showId: string) => {
   selectedSeats.value = [];
   const res = await getShowSeats(showId);
   seatList.value = res.data;
 };
 
-// 5. 选座交互
+// 选座交互
 const toggleSeat = (seat: any) => {
   if (seat.status !== "available") return;
   const index = selectedSeats.value.indexOf(seat.id);
@@ -125,13 +193,12 @@ const toggleSeat = (seat: any) => {
 
 const getSeatClass = (seat: any) => {
   if (selectedSeats.value.includes(seat.id)) return "seat-selected";
-  // 'locked' 和 'sold' 都表示不可用，合并显示
   if (seat.status === "locked" || seat.status === "sold") return "seat-sold";
   if (seat.type === "vip") return "seat-vip";
   return "seat-available";
 };
 
-// 6. 确认下单 & 自动支付 (核心业务流程)
+// 确认下单
 const confirmOrder = async () => {
   if (selectedSeats.value.length === 0) return;
 
@@ -142,7 +209,6 @@ const confirmOrder = async () => {
   }
 
   try {
-    // 步骤 1: 创建订单（锁座）
     const orderRes = await createOrder({
       userId,
       showId: currentShowId.value,
@@ -150,34 +216,29 @@ const confirmOrder = async () => {
     });
 
     if (orderRes.success && orderRes.code === 200) {
-      // 模拟接收系统通知（锁座成功）
       ElNotification({
         title: "系统通知",
-        message: "订单创建成功，座位已锁定，正在跳转支付...",
+        message: "锁定成功，正在支付...",
         type: "success",
-        duration: 2000
+        duration: 1500
       });
 
-      // 步骤 2: 自动支付
       const payRes = await payOrder({ orderId: orderRes.data.orderId });
       if (payRes.success) {
-        // 模拟接收系统通知（支付成功）
         ElNotification({
-          title: "系统通知",
-          message: `支付成功！扣款 ￥${totalPrice.value}。请在“我的订单”中查看。`,
+          title: "支付成功",
+          message: `扣款 ￥${totalPrice.value}，请在“我的订单”查看`,
           type: "success",
-          duration: 4000
+          duration: 3000
         });
-
         seatDialogVisible.value = false;
-        loadMovies(); // 刷新电影列表
+        loadMovies();
       } else {
         ElNotification({
           title: "支付失败",
           message: payRes.message,
           type: "error"
         });
-        // 支付失败，座位在后端会自动解锁或过期取消
       }
     } else {
       ElNotification({
@@ -188,15 +249,11 @@ const confirmOrder = async () => {
     }
   } catch (error: any) {
     console.error(error);
-    ElNotification({
-      title: "请求错误",
-      message: "网络请求失败或服务器错误",
-      type: "error"
-    });
+    ElNotification({ title: "错误", message: "系统异常", type: "error" });
   }
 };
 
-// 7. 我的订单与退票
+// 我的订单
 const openMyOrders = async () => {
   const userId = userStore.userId;
   if (!userId) {
@@ -210,13 +267,12 @@ const openMyOrders = async () => {
     if (res.success) {
       myOrders.value = res.data;
     }
-  } catch {
-    ElNotification({ title: "错误", message: "加载订单失败", type: "error" });
   } finally {
     orderLoading.value = false;
   }
 };
 
+// 退票
 const handleRefund = (order: any) => {
   ElMessageBox.confirm(
     `确定要退掉 "${order.movieTitle}" 的票吗？`,
@@ -226,71 +282,55 @@ const handleRefund = (order: any) => {
       confirmButtonText: "确定退票",
       cancelButtonText: "再想想"
     }
-  )
-    .then(async () => {
-      const res = await refundOrder({ orderId: order.orderId });
-      if (res.success) {
-        // 模拟接收退票通知
-        ElNotification({
-          title: "系统通知",
-          message: "退票申请已通过，款项将原路返回",
-          type: "success"
-        });
-        openMyOrders(); // 刷新
-        loadSeats(currentShowId.value); // 刷新座位图，释放座位
-      } else {
-        ElNotification({
-          title: "退票失败",
-          message: res.message,
-          type: "error"
-        });
+  ).then(async () => {
+    const res = await refundOrder({ orderId: order.orderId });
+    if (res.success) {
+      ElNotification({
+        title: "系统通知",
+        message: "退票成功，款项已原路退回",
+        type: "success"
+      });
+      openMyOrders();
+      // 如果退的是当前正在看的场次，刷新座位图
+      if (currentShowId.value) {
+        loadSeats(currentShowId.value);
       }
-    })
-    .catch(() => {
-      // 用户取消操作
-    });
+    } else {
+      ElNotification({
+        title: "退票失败",
+        message: res.message,
+        type: "error"
+      });
+    }
+  });
 };
 
-// 工具函数
 const getStatusTag = (status: string) => {
-  switch (status) {
-    case "PAID":
-      return "success";
-    case "PENDING":
-      return "warning";
-    case "REFUNDED":
-      return "info";
-    case "CANCELLED":
-      return "danger";
-    case "EXPIRED":
-      return "info";
-    case "RESERVED":
-      return "warning";
-    default:
-      return "info";
-  }
+  const map: any = {
+    PAID: "success",
+    PENDING: "warning",
+    REFUNDED: "info",
+    CANCELLED: "danger",
+    EXPIRED: "info"
+  };
+  return map[status] || "info";
 };
 
 const getStatusText = (status: string) => {
-  switch (status) {
-    case "PAID":
-      return "已支付";
-    case "PENDING":
-      return "待支付";
-    case "REFUNDED":
-      return "已退票";
-    case "CANCELLED":
-      return "已取消";
-    case "EXPIRED":
-      return "已过期";
-    case "RESERVED":
-      return "预留中";
-    default:
-      return status;
-  }
+  const map: any = {
+    PAID: "已支付",
+    PENDING: "待支付",
+    REFUNDED: "已退票",
+    CANCELLED: "已取消",
+    EXPIRED: "已过期",
+    RESERVED: "预留中"
+  };
+  return map[status] || status;
 };
 
-onMounted(() => loadMovies());
+onMounted(() => {
+  loadMovies();
+});
 </script>
 
 <template>
@@ -324,7 +364,7 @@ onMounted(() => loadMovies());
         </div>
         <div class="bottom-btn">
           <el-button type="primary" block @click="handleBuyTicket(item)"
-            >选座购票</el-button
+          >选座购票</el-button
           >
         </div>
       </el-card>
@@ -350,7 +390,7 @@ onMounted(() => loadMovies());
               :label="show.id"
             >
               {{ show.startTime.substring(5, 16) }}
-              ({{ show.roomName }}) ￥{{ show.basePrice }}
+              ({{ show.roomName }})
             </el-radio-button>
           </el-radio-group>
         </div>
@@ -360,6 +400,7 @@ onMounted(() => loadMovies());
         <div class="screen-container">
           <div class="screen">银幕中央</div>
         </div>
+
         <div class="seat-map-wrapper">
           <div class="seat-map-container">
             <div
@@ -373,7 +414,7 @@ onMounted(() => loadMovies());
                   v-for="seat in seats"
                   :key="seat.id"
                   effect="dark"
-                  :content="`${seat.type === 'vip' ? 'VIP' : '普通'}座位 ￥${seat.price.toFixed(2)}`"
+                  :content="`${seat.type === 'vip' ? 'VIP' : '普通'} ￥${seat.price}`"
                   placement="top"
                 >
                   <div
@@ -390,19 +431,19 @@ onMounted(() => loadMovies());
         </div>
 
         <div class="legend">
-          <div class="legend-item"><span class="dot available" />可选</div>
+          <div class="legend-item"><span class="dot available" />普通</div>
+          <div class="legend-item"><span class="dot vip" />VIP</div>
           <div class="legend-item"><span class="dot selected" />已选</div>
           <div class="legend-item"><span class="dot sold" />已售/锁定</div>
-          <div class="legend-item"><span class="dot vip" />VIP</div>
         </div>
       </div>
 
       <template #footer>
         <div class="footer-info">
           <span
-            >已选：{{ selectedSeats.length }} 座 | 总价：<span
-              style="color: #f56c6c; font-weight: bold; font-size: 18px"
-            >
+          >已选：{{ selectedSeats.length }} 座 | 总价：<span
+            style="color: #f56c6c; font-weight: bold; font-size: 18px"
+          >
               ￥{{ totalPrice.toFixed(2) }}
             </span>
           </span>
@@ -432,7 +473,7 @@ onMounted(() => loadMovies());
       >
         <el-table-column prop="orderId" label="订单号" width="180" />
         <el-table-column prop="movieTitle" label="电影" />
-        <el-table-column prop="startTime" label="开场时间" width="160" />
+        <el-table-column prop="startTime" label="时间" width="160" />
         <el-table-column prop="seats" label="座位" />
         <el-table-column prop="totalAmount" label="金额" width="100">
           <template #default="{ row }">￥{{ row.totalAmount }}</template>
@@ -440,8 +481,8 @@ onMounted(() => loadMovies());
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusTag(row.status)">{{
-              getStatusText(row.status)
-            }}</el-tag>
+                getStatusText(row.status)
+              }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
@@ -464,7 +505,6 @@ onMounted(() => loadMovies());
 </template>
 
 <style scoped>
-/* 样式保留第二段代码的结构，并包含第一段代码的精简优化 */
 .portal-container {
   padding: 20px;
 }
@@ -540,7 +580,7 @@ onMounted(() => loadMovies());
   gap: 15px;
 }
 .row-label {
-  width: 40px;
+  width: 30px;
   text-align: right;
   color: #999;
   font-size: 12px;
@@ -588,13 +628,13 @@ onMounted(() => loadMovies());
   border-color: #f56c6c;
   cursor: not-allowed;
   opacity: 0.6;
-} /* 包含已售和锁定 */
+}
 
 .legend {
-  margin-top: 20px;
+  margin-top: 15px;
   display: flex;
   justify-content: center;
-  gap: 20px;
+  gap: 15px;
 }
 .legend-item {
   display: flex;
@@ -612,6 +652,10 @@ onMounted(() => loadMovies());
 .dot.available {
   background: #fff;
 }
+.dot.vip {
+  background: #fdf6ec;
+  border-color: #e6a23c;
+}
 .dot.selected {
   background: #409eff;
   border-color: #409eff;
@@ -619,10 +663,6 @@ onMounted(() => loadMovies());
 .dot.sold {
   background: #f56c6c;
   border-color: #f56c6c;
-}
-.dot.vip {
-  background: #fdf6ec;
-  border-color: #e6a23c;
 }
 
 .footer-info {
