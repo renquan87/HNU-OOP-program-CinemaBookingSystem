@@ -1,7 +1,6 @@
 package com.cinema.service;
 
 import com.cinema.model.*;
-import com.cinema.storage.SimpleDataStorage;
 import com.cinema.storage.MySQLDataStorage;
 
 import java.time.LocalDate;
@@ -18,7 +17,6 @@ public class CinemaManager {
     private final Map<String, Show> shows;
     private final Map<String, User> users;
 
-    private final SimpleDataStorage dataStorage; // 文件存储（降级/备份）
     private final MySQLDataStorage mysqlDataStorage; // 数据库存储
     private final boolean useMySQL;
 
@@ -26,7 +24,6 @@ public class CinemaManager {
     private final DisplayService displayService;
 
     private CinemaManager() {
-        this.dataStorage = new SimpleDataStorage();
         this.movies = new ConcurrentHashMap<>();
         this.rooms = new ConcurrentHashMap<>();
         this.shows = new ConcurrentHashMap<>();
@@ -337,44 +334,30 @@ public class CinemaManager {
             rooms.putAll(mysqlDataStorage.loadScreeningRooms());
             shows.putAll(mysqlDataStorage.loadShows());
             users.putAll(mysqlDataStorage.loadUsers());
-        } else {
-            movies.putAll(dataStorage.loadMovies());
-            rooms.putAll(dataStorage.loadScreeningRooms());
-            shows.putAll(dataStorage.loadShows());
-            users.putAll(dataStorage.loadUsers());
         }
-        // 重建关系在对象加载时完成
     }
 
     public void saveMovies() {
         if (useMySQL && mysqlDataStorage != null) {
             mysqlDataStorage.saveMovies(movies);
-        } else {
-            dataStorage.saveMovies(movies);
         }
     }
 
     public void saveRooms() {
         if (useMySQL && mysqlDataStorage != null) {
             mysqlDataStorage.saveScreeningRooms(rooms);
-        } else {
-            dataStorage.saveScreeningRooms(rooms);
         }
     }
 
     public void saveShows() {
         if (useMySQL && mysqlDataStorage != null) {
             mysqlDataStorage.saveShows(shows);
-        } else {
-            dataStorage.saveShows(shows);
         }
     }
 
     public void saveUsers() {
         if (useMySQL && mysqlDataStorage != null) {
             mysqlDataStorage.saveUsers(users);
-        } else {
-            dataStorage.saveUsers(users);
         }
     }
 
@@ -392,10 +375,6 @@ public class CinemaManager {
         } catch (IllegalStateException e) {
             System.err.println("BookingService 未初始化，跳过订单保存。");
         }
-    }
-
-    public void backupData() {
-        dataStorage.backupData();
     }
 
     /**
