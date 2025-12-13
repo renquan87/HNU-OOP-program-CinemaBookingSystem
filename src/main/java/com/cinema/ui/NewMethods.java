@@ -201,12 +201,7 @@ public class NewMethods {
         System.out.println("\n----- 数据备份 -----");
         System.out.print("确认备份数据？(Y/N): ");
         String confirm = scanner.nextLine().trim();
-        
-        if (confirm.equalsIgnoreCase("Y")) {
-            cinemaManager.backupData();
-        } else {
-            System.out.println("取消备份");
-        }
+
     }
 
     public void logout() {

@@ -974,10 +974,7 @@ public class ConsoleUI {
     private void viewMyOrders() {
         clearScreen();
         printTitle("我的订单");
-        
-        // 刷新订单数据，确保与数据库同步
-        bookingService.refreshOrders();
-        
+
         // 先检查过期订单
         bookingService.checkExpiredOrders();
         
