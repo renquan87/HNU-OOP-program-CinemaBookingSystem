@@ -67,3 +67,8 @@ export const getAllOrders = () => {
 export const getNoticeList = (userId: string) => {
   return http.request<any>("get", "/api/notice/list", { params: { userId } });
 };
+
+// 🔴 新增：调用 AI 助手
+export const askAi = (message: string) => {
+  return http.request<any>("post", "/api/chat/ask", { data: { message } });
+};
