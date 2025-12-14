@@ -11,6 +11,7 @@ import {
 } from "@/api/cinema/index";
 import { ElNotification, ElMessageBox } from "element-plus";
 import { useUserStoreHook } from "@/store/modules/user";
+import AiAssistant from "@/components/AiAssistant/index.vue";
 
 // ================= 数据定义 =================
 const movies = ref([]);
@@ -501,6 +502,7 @@ onMounted(() => {
         </el-table-column>
       </el-table>
     </el-dialog>
+    <AiAssistant />
   </div>
 </template>
 

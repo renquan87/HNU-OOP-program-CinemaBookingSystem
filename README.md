@@ -309,6 +309,10 @@ SET GLOBAL general_log_file = '/path/to/mysql.log';
 -- 查看慢查询
 SHOW VARIABLES LIKE 'slow_query_log';
 ```
+### AI 助手配置说明
+本项目支持可选的 AI 智能助手功能。
+如需启用，请在 `src/main/resources/` 下创建 `application-ai.properties`，
+并填写你自己的 API Key（该文件已被 .gitignore 忽略）。
 
 ## 团队协作指南
 

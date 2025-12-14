@@ -61,3 +61,5 @@ logs/
 # application.yml
 
 web/node_modules
+
+src/main/resources/application-ai.properties
