@@ -8,6 +8,7 @@ import {
   pathResolve,
   __APP_INFO__
 } from "./build/utils";
+import * as http from "http";
 
 export default defineConfig(({ mode }: ConfigEnv) => {
   // 1. 修复 'env' unused: 直接在这里使用 loadEnv，不需要单独声明 const env
@@ -30,7 +31,25 @@ export default defineConfig(({ mode }: ConfigEnv) => {
       proxy: {
         "/api": {
           target: "http://localhost:8081",
-          changeOrigin: true
+          changeOrigin: true,
+          timeout: 30000,
+          proxyTimeout: 30000,
+          // 添加缓冲和其他配置以修复分块编码问题
+          ws: false,
+          // 重要：禁用 Node.js http 代理的分块编码问题
+          agent: new http.Agent({
+            keepAlive: true,
+            timeout: 30000,
+            maxSockets: 100,
+            maxFreeSockets: 10
+          }),
+          // 处理响应头
+          onProxyRes: (proxyRes) => {
+            // 删除 transfer-encoding，使用 content-length 代替
+            delete proxyRes.headers['transfer-encoding'];
+            // 确保响应头正确
+            proxyRes.headers['content-type'] = 'application/json; charset=utf-8';
+          }
           // rewrite: (path) => path.replace(/^\/api/, ""),
         }
       },

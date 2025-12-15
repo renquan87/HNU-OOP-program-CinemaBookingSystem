@@ -7,6 +7,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 -- 2. 删除旧表（确保完全重置）
 -- 注意：必须确保每行以分号结尾，不要在分号后加注释
+-- 🔴 修改：不删除 users 表，保留用户数据
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS order_seats;
 DROP TABLE IF EXISTS orders;
@@ -14,7 +15,7 @@ DROP TABLE IF EXISTS shows;
 DROP TABLE IF EXISTS seats;
 DROP TABLE IF EXISTS screening_rooms;
 DROP TABLE IF EXISTS movies;
-DROP TABLE IF EXISTS users;
+-- DROP TABLE IF EXISTS users;  -- ✅ 注释掉，保留用户表
 
 -- 3. 电影表
 CREATE TABLE movies (
@@ -70,7 +71,8 @@ CREATE TABLE shows (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 7. 用户表
-CREATE TABLE users (
+-- 🔴 修改：如果用户表不存在，才创建（保留原有用户数据）
+CREATE TABLE IF NOT EXISTS users (
                        id VARCHAR(50) PRIMARY KEY,
                        name VARCHAR(100) NOT NULL,
                        password VARCHAR(100) NOT NULL DEFAULT '123456',
