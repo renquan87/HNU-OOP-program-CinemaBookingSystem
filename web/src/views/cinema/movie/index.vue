@@ -11,6 +11,7 @@ const loading = ref(true);
 
 // 🟢 新增：添加电影弹窗控制
 const dialogVisible = ref(false);
+// 🔴 修改：表单数据增加 coverUrl 和 trailerUrl 字段
 const form = ref({
   title: "",
   director: "",
@@ -19,7 +20,9 @@ const form = ref({
   rating: 8.0,
   description: "",
   genre: "剧情",
-  releaseTime: "" // YYYY-MM-DD
+  releaseTime: "", // YYYY-MM-DD
+  coverUrl: "",   // 🔴 新增：封面图片URL
+  trailerUrl: ""  // 🔴 新增：预告片URL
 });
 
 // 获取数据
@@ -45,6 +48,7 @@ const handleSubmit = async () => {
   }
 
   try {
+    // 提交 form.value 时，会自动携带 coverUrl 和 trailerUrl
     const res = await addMovie(form.value);
     if (res.success) {
       message("电影添加成功", { type: "success" });
@@ -58,7 +62,9 @@ const handleSubmit = async () => {
         rating: 8.0,
         description: "",
         genre: "剧情",
-        releaseTime: ""
+        releaseTime: "",
+        coverUrl: "",   // 🔴 重置
+        trailerUrl: ""  // 🔴 重置
       };
       fetchData(); // 刷新列表
     } else {
@@ -166,6 +172,14 @@ onMounted(() => {
             </el-form-item>
           </el-col>
         </el-row>
+
+        <el-form-item label="封面图片URL">
+          <el-input v-model="form.coverUrl" placeholder="请输入图片链接 (http://...)" />
+        </el-form-item>
+
+        <el-form-item label="预告片URL">
+          <el-input v-model="form.trailerUrl" placeholder="请输入视频链接 (.mp4)" />
+        </el-form-item>
 
         <el-form-item label="类型">
           <el-select v-model="form.genre" placeholder="请选择类型" style="width: 100%">

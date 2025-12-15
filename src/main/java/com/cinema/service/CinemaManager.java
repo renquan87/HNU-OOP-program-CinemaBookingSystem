@@ -171,12 +171,12 @@ public class CinemaManager {
         users.put(admin.getId(), admin);
         // Create default normal user
         User testUser = new User(
-            "test",          // 用户 ID（唯一）
-            "test",              // 用户名
-            "test1234",
-            "18800000000",       // 手机号（随便写一个）
-            "test@cinema.com",   // 邮箱
-            User.UserRole.CUSTOMER  // 普通用户角色
+                "test",          // 用户 ID（唯一）
+                "test",              // 用户名
+                "test1234",
+                "18800000000",       // 手机号（随便写一个）
+                "test@cinema.com",   // 邮箱
+                User.UserRole.CUSTOMER  // 普通用户角色
         );
         users.put(testUser.getId(), testUser);
 
@@ -212,6 +212,29 @@ public class CinemaManager {
             saveShows();
             // 触发显示更新
             displayService.updateMovieDisplay(movie, "下架");
+        }
+    }
+
+    // 🔴 修复：添加评论后立即保存到数据库
+    public void addComment(String movieId, Comment comment) {
+        Movie movie = movies.get(movieId);
+        if (movie != null) {
+            movie.addComment(comment);
+
+            // 重新计算评分 (0-10分)
+            double total = 0;
+            List<Comment> comments = movie.getComments();
+            if (!comments.isEmpty()) {
+                for (Comment c : comments) {
+                    total += c.getRating();
+                }
+                double avg = total / comments.size();
+                movie.setRating(Math.round(avg * 10.0) / 10.0);
+            }
+
+            // 🔴 关键：调用 saveMovies 触发数据库写入
+            saveMovies();
+            System.out.println("评论已添加并保存到数据库");
         }
     }
 
@@ -252,10 +275,11 @@ public class CinemaManager {
         saveRooms();
     }
 
+    // 🔴 确保注册时调用 saveUsers
     public void addUser(User user) {
         if (user != null && user.getId() != null) {
             users.put(user.getId(), user);
-            saveUsers();
+            saveUsers(); // 这会调用 MySQLDataStorage.saveUsers
         }
     }
 

@@ -36,7 +36,7 @@ export default {
         roles: ["admin"] // 仅管理员可见
       }
     },
-    // 🔴 新增：订单管理 (管理员)
+    // 🔴 订单管理 (管理员)
     {
       path: "/cinema/order",
       name: "OrderManagement",
@@ -55,6 +55,19 @@ export default {
       meta: {
         title: "购票大厅",
         roles: ["common"] // 仅普通用户可见
+      }
+    },
+
+    // 🔴 新增：电影详情页
+    {
+      path: "/cinema/movie-detail/:id",
+      name: "MovieDetail",
+      component: () => import("@/views/cinema/portal/detail.vue"),
+      meta: {
+        title: "电影详情",
+        showLink: false, // 隐藏菜单
+        activePath: "/cinema/portal", // 侧边栏高亮购票大厅
+        roles: ["common", "admin"] // 普通用户和管理员均可访问
       }
     }
   ]
