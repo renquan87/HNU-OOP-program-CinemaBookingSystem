@@ -314,6 +314,60 @@ SHOW VARIABLES LIKE 'slow_query_log';
 如需启用，请在 `src/main/resources/` 下创建 `application-ai.properties`，
 并填写你自己的 API Key（该文件已被 .gitignore 忽略）。
 
+#### 数据库结构更新
+
+请确保数据库 `cinema_db` 执行了最新的 `src/main/resources/schema.sql` 脚本，以支持评论、评分及多媒体字段。
+
+```sql
+-- 关键变更：新增评论表与电影资源字段
+-- 建议在 MySQL 中完全重新执行 schema.sql 以重置表结构
+
+-- 1. 电影表 (Movies) 新增字段
+cover_url TEXT,     -- 封面图片路径
+trailer_url TEXT,   -- 预告片视频路径
+
+-- 2. 新增评论表 (Comments)
+CREATE TABLE comments (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    rating DOUBLE,  -- 支持 0-10 分
+    content TEXT,
+    ...
+);
+```
+
+#### 本地媒体资源配置
+
+本项目支持**离线模式**加载图片和视频。请在前端项目根目录下按以下结构放置资源文件，系统将通过 Vite 的静态资源服务直接访问。
+
+```text
+web/
+├── public/
+│   └── media/             <-- 需手动创建此目录
+│       ├── covers/        <-- 存放封面图片 (.jpg/.png)
+│       │   ├── avatar.jpg
+│       │   ├── earth.jpg
+│       │   └── ...
+│       └── trailers/      <-- 存放预告片视频 (.mp4)
+            ├── avatar.mp4
+            ├── earth.mp4
+            └── ...
+```
+
+#### 系统数据初始化
+
+配置好本地资源后，请运行 Java 初始化脚本以写入带有正确路径的测试数据。
+
+```java
+// 运行入口: src/test/java/com/cinema/InitializeSystem.java
+
+// 脚本功能：
+// 1. 创建默认管理员 (账号: ADMIN-001 / 密码: Admin@123)
+// 2. 创建默认测试用户 (账号: renquan / 密码: User@123)
+// 3. 写入电影数据，并将资源路径指向 /media/covers/ 和 /media/trailers/
+// 4. 生成放映厅、排片及初始订单数据
+```
+
 ## 团队协作指南
 
 ### 1. 代码管理

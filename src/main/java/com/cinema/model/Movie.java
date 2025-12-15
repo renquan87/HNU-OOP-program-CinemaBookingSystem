@@ -5,10 +5,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList; // 🔴 导入 CopyOnWriteArrayList
 
 public class Movie implements java.io.Serializable {
     private static final long serialVersionUID = 1L;
-    
+
     private String id;
     private String title;
     private LocalDate releaseTime;
@@ -18,10 +19,17 @@ public class Movie implements java.io.Serializable {
     private double rating;
     private String description;
     private MovieGenre genre;
+    // 🔴 新增：预告片地址
+    private String trailerUrl;
+    private String coverUrl; // 🔴 新增：封面地址
+    // 🔴 新增：评论列表
+    private List<Comment> comments;
     private Map<LocalDate, List<Show>> showSchedule;
 
-    public Movie(String id, String title, LocalDate releaseTime, List<String> actors, 
-                 String director, int duration, double rating, String description, MovieGenre genre) {
+    // 🔴 完整的全参构造函数
+    public Movie(String id, String title, LocalDate releaseTime, List<String> actors,
+                 String director, int duration, double rating, String description,
+                 MovieGenre genre, String trailerUrl, String coverUrl) {
         this.id = id;
         this.title = title;
         this.releaseTime = releaseTime;
@@ -31,17 +39,58 @@ public class Movie implements java.io.Serializable {
         this.rating = rating;
         this.description = description;
         this.genre = genre;
+        this.trailerUrl = trailerUrl;
+        this.coverUrl = coverUrl; // 🔴
+        // 使用 CopyOnWriteArrayList 保证多线程环境下的评论操作安全
+        this.comments = new CopyOnWriteArrayList<>();
         this.showSchedule = new ConcurrentHashMap<>();
+    }
+
+    // 🔴 9参构造函数 (兼容旧代码，默认 trailerUrl/coverUrl 为 "")
+    public Movie(String id, String title, LocalDate releaseTime, List<String> actors,
+                 String director, int duration, double rating, String description, MovieGenre genre) {
+        this(id, title, releaseTime, actors, director, duration, rating, description, genre, "", "");
     }
 
     /**
      * 兼容性构造函数，支持String类型的genre参数
      */
-    public Movie(String id, String title, LocalDate releaseTime, List<String> actors, 
+    public Movie(String id, String title, LocalDate releaseTime, List<String> actors,
                  String director, int duration, double rating, String description, String genre) {
-        this(id, title, releaseTime, actors, director, duration, rating, description, 
-             MovieGenre.fromDescription(genre));
+        // 调用 9 参构造函数
+        this(id, title, releaseTime, actors, director, duration, rating, description,
+                MovieGenre.fromDescription(genre));
     }
+
+    // 🔴 新增：trailerUrl 的 Getter 和 Setter
+    public String getTrailerUrl() {
+        return trailerUrl;
+    }
+    public void setTrailerUrl(String trailerUrl) {
+        this.trailerUrl = trailerUrl;
+    }
+
+    // 🔴 新增：coverUrl 的 Getter 和 Setter
+    public String getCoverUrl() {
+        return coverUrl;
+    }
+    public void setCoverUrl(String coverUrl) {
+        this.coverUrl = coverUrl;
+    }
+
+    // 🔴 新增：comments 的 Getter 和 addComment 方法
+    public List<Comment> getComments() {
+        return comments;
+    }
+    public void addComment(Comment comment) {
+        // 确保评论不为空，然后添加到列表开头（最新评论在最前）
+        if (comment != null) {
+            // CopyOnWriteArrayList 支持在头部添加
+            this.comments.add(0, comment);
+        }
+    }
+
+    // ... 其他原有的 getter/setter/methods 保持不变 ...
 
     public String getId() {
         return id;
@@ -138,7 +187,7 @@ public class Movie implements java.io.Serializable {
         actors.remove(actor);
     }
 
-    
+
 
     public List<Show> getShowsByDate(LocalDate date) {
         return showSchedule.getOrDefault(date, new ArrayList<>());
@@ -180,8 +229,11 @@ public class Movie implements java.io.Serializable {
         info.append(String.format("  时长: %d分钟\n", duration));
         info.append(String.format("  评分: %.1f\n", rating));
         info.append(String.format("  上映日期: %s\n", releaseTime));
+        info.append(String.format("  封面链接: %s\n", coverUrl)); // 🔴 增加封面链接
+        info.append(String.format("  预告片链接: %s\n", trailerUrl)); // 🔴 增加预告片链接
         info.append(String.format("  演员: %s\n", String.join(", ", actors)));
         info.append(String.format("  简介: %s\n", description));
+        info.append(String.format("  评论数: %d\n", comments.size())); // 🔴 增加评论数
         return info.toString();
     }
 }

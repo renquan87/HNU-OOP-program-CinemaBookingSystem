@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, onUnmounted, watch } from "vue";
+import { useRouter } from "vue-router";
 import { getMovieList } from "@/api/cinema/movie";
 import {
   getShowList,
@@ -12,21 +13,24 @@ import {
 import { ElNotification, ElMessageBox } from "element-plus";
 import { useUserStoreHook } from "@/store/modules/user";
 import AiAssistant from "@/components/AiAssistant/index.vue";
+import ReBookingDialog from "@/components/ReBookingDialog/index.vue";
 
 // ================= 数据定义 =================
+const router = useRouter();
+const userStore = useUserStoreHook();
 const movies = ref([]);
 const loading = ref(false);
-const userStore = useUserStoreHook();
 
-// 购票弹窗相关
+// 购票弹窗控制
 const seatDialogVisible = ref(false);
 const currentMovie = ref<any>({});
+// 以下 seat/show 状态主要由 ReBookingDialog 内部使用或维护，但在外部仍需声明
 const showList = ref([]);
 const currentShowId = ref("");
-const seatList = ref([]); // 原始座位列表
+const seatList = ref([]);
 const selectedSeats = ref<string[]>([]);
 
-// 订单弹窗相关
+// 订单弹窗
 const orderDialogVisible = ref(false);
 const myOrders = ref([]);
 const orderLoading = ref(false);
@@ -34,7 +38,7 @@ const orderLoading = ref(false);
 // WebSocket 实例
 let ws: WebSocket | null = null;
 
-// ================= 核心计算 =================
+// ================= 核心计算 (保留原逻辑) =================
 
 // 1. 修复座位布局：按行分组
 const seatsByRow = computed(() => {
@@ -62,37 +66,33 @@ const totalPrice = computed(() => {
   return Math.round(total * 100) / 100;
 });
 
-// ================= WebSocket 实时逻辑 =================
+// ================= WebSocket 实时逻辑 (保留原逻辑) =================
+// 注意：虽然购票逻辑移入了 ReBookingDialog，但如果这个页面需要维护 WebSocket 状态
+// (比如在 ReBookingDialog 关闭后进行清理)，这些逻辑仍然需要保留。
 
 const initWebSocket = (showId: string) => {
   // 断开旧连接
   if (ws) ws.close();
-
-  // 建立新连接 (注意端口号需与后端一致，这里假设是 8081)
   ws = new WebSocket(`ws://localhost:8081/ws/seats/${showId}`);
-
+  // ... (WebSocket 内部逻辑省略，保持原样)
   ws.onopen = () => {
     console.log(`[WebSocket] 已连接场次: ${showId}`);
   };
-
   ws.onmessage = (event) => {
     if (event.data === "UPDATE") {
       console.log("[WebSocket] 收到座位更新通知");
       refreshSeatStatus(showId);
     }
   };
-
   ws.onclose = () => {
     console.log("[WebSocket] 连接已断开");
   };
 };
 
-// 静默刷新座位状态
 const refreshSeatStatus = async (showId: string) => {
   const res = await getShowSeats(showId);
   if (res.success) {
     seatList.value = res.data;
-    // 检查已选座位是否被抢
     const takenSeats = res.data.filter(
       (s: any) =>
         selectedSeats.value.includes(s.id) && s.status !== "available"
@@ -112,7 +112,6 @@ const refreshSeatStatus = async (showId: string) => {
   }
 };
 
-// 监听弹窗关闭，断开连接
 watch(seatDialogVisible, newVal => {
   if (!newVal && ws) {
     ws.close();
@@ -126,7 +125,6 @@ onUnmounted(() => {
 
 // ================= 业务逻辑 =================
 
-// 加载电影
 const loadMovies = async () => {
   loading.value = true;
   try {
@@ -137,137 +135,25 @@ const loadMovies = async () => {
   }
 };
 
-// 打开购票选座
-const handleBuyTicket = async (movie: any) => {
+const goToDetail = (movie: any) => {
+  router.push({ name: "MovieDetail", params: { id: movie.id } });
+};
+
+const handleQuickBuy = (movie: any, e: Event) => {
+  if (e) e.stopPropagation(); // 防止冒泡触发跳转
   currentMovie.value = movie;
-  const res = await getShowList(movie.id);
-  if (!res.data || res.data.length === 0) {
-    ElNotification({
-      title: "通知",
-      message: "该电影暂无排片",
-      type: "warning"
-    });
-    return;
-  }
-  showList.value = res.data;
-  // 默认选中第一个场次
-  currentShowId.value = res.data[0].id;
-  await loadSeats(res.data[0].id);
   seatDialogVisible.value = true;
-
-  // 启动 WebSocket
-  initWebSocket(currentShowId.value);
 };
 
-// 切换场次
-const handleShowChange = async (val: string) => {
-  await loadSeats(val);
-  // 切换 WebSocket
-  initWebSocket(val);
-};
-
-// 加载座位
-const loadSeats = async (showId: string) => {
-  selectedSeats.value = [];
-  const res = await getShowSeats(showId);
-  seatList.value = res.data;
-};
-
-// 选座交互
-const toggleSeat = (seat: any) => {
-  if (seat.status !== "available") return;
-  const index = selectedSeats.value.indexOf(seat.id);
-  if (index !== -1) {
-    selectedSeats.value.splice(index, 1);
-  } else {
-    if (selectedSeats.value.length >= 4) {
-      ElNotification({
-        title: "提示",
-        message: "一次最多选择4个座位",
-        type: "warning"
-      });
-      return;
-    }
-    selectedSeats.value.push(seat.id);
-  }
-};
-
-const getSeatClass = (seat: any) => {
-  if (selectedSeats.value.includes(seat.id)) return "seat-selected";
-  if (seat.status === "locked" || seat.status === "sold") return "seat-sold";
-  if (seat.type === "vip") return "seat-vip";
-  return "seat-available";
-};
-
-// 确认下单
-const confirmOrder = async () => {
-  if (selectedSeats.value.length === 0) return;
-
-  const userId = userStore.userId;
-  if (!userId) {
-    ElNotification({ title: "错误", message: "请重新登录", type: "error" });
-    return;
-  }
-
-  try {
-    const orderRes = await createOrder({
-      userId,
-      showId: currentShowId.value,
-      seatIds: selectedSeats.value
-    });
-
-    if (orderRes.success && orderRes.code === 200) {
-      ElNotification({
-        title: "系统通知",
-        message: "锁定成功，正在支付...",
-        type: "success",
-        duration: 1500
-      });
-
-      const payRes = await payOrder({ orderId: orderRes.data.orderId });
-      if (payRes.success) {
-        ElNotification({
-          title: "支付成功",
-          message: `扣款 ￥${totalPrice.value}，请在“我的订单”查看`,
-          type: "success",
-          duration: 3000
-        });
-        seatDialogVisible.value = false;
-        loadMovies();
-      } else {
-        ElNotification({
-          title: "支付失败",
-          message: payRes.message,
-          type: "error"
-        });
-      }
-    } else {
-      ElNotification({
-        title: "下单失败",
-        message: orderRes.message,
-        type: "error"
-      });
-    }
-  } catch (error: any) {
-    console.error(error);
-    ElNotification({ title: "错误", message: "系统异常", type: "error" });
-  }
-};
-
-// 我的订单
+// 我的订单逻辑
 const openMyOrders = async () => {
   const userId = userStore.userId;
-  if (!userId) {
-    ElNotification({ title: "警告", message: "请先登录", type: "warning" });
-    return;
-  }
+  if (!userId) return ElNotification({ title: "警告", message: "请先登录", type: "warning" });
   orderDialogVisible.value = true;
   orderLoading.value = true;
   try {
     const res = await getUserOrders(userId);
-    if (res.success) {
-      myOrders.value = res.data;
-    }
+    if (res.success) myOrders.value = res.data;
   } finally {
     orderLoading.value = false;
   }
@@ -292,10 +178,7 @@ const handleRefund = (order: any) => {
         type: "success"
       });
       openMyOrders();
-      // 如果退的是当前正在看的场次，刷新座位图
-      if (currentShowId.value) {
-        loadSeats(currentShowId.value);
-      }
+      // 如果退的是当前正在看的场次，刷新座位图（需要 ReBookingDialog 暴露事件或状态）
     } else {
       ElNotification({
         title: "退票失败",
@@ -329,6 +212,7 @@ const getStatusText = (status: string) => {
   return map[status] || status;
 };
 
+
 onMounted(() => {
   loadMovies();
 });
@@ -336,15 +220,13 @@ onMounted(() => {
 
 <template>
   <div class="portal-container">
-    <div class="header-actions">
-      <span class="welcome-text">👋 欢迎，{{ userStore.username }}</span>
-      <el-button
-        type="primary"
-        plain
-        icon="el-icon-tickets"
-        @click="openMyOrders"
-      >
-        我的订单 / 退票
+    <div class="header-banner">
+      <div class="header-content">
+        <h2>👋 欢迎回来，{{ userStore.username }}</h2>
+        <p>今日热映电影推荐，点击卡片查看详情与预告片</p>
+      </div>
+      <el-button type="primary" size="large" icon="el-icon-tickets" @click="openMyOrders" round>
+        查看我的订单
       </el-button>
     </div>
 
@@ -354,118 +236,66 @@ onMounted(() => {
         :key="item.id"
         class="movie-card"
         :body-style="{ padding: '0px' }"
+        shadow="hover"
+        @click="goToDetail(item)"
       >
-        <div class="movie-info">
-          <h3>{{ item.title }}</h3>
-          <p>导演：{{ item.director }}</p>
-          <p>类型：{{ item.genre }}</p>
-          <div class="rating">
-            评分：<span>{{ item.rating }}</span>
+        <div class="poster-wrapper">
+          <el-image
+            v-if="item.coverUrl"
+            :src="item.coverUrl"
+            fit="cover"
+            class="poster-image"
+            lazy
+          >
+            <template #placeholder>
+              <div class="image-slot loading">加载中...</div>
+            </template>
+            <template #error>
+              <div class="image-slot error">
+                <span>{{ item.title.substring(0, 1) }}</span>
+              </div>
+            </template>
+          </el-image>
+          <div v-else class="image-slot default">
+            <span>{{ item.title.substring(0, 1) }}</span>
+          </div>
+
+          <div class="poster-mask">
+            <span class="play-icon">▶</span>
+          </div>
+
+          <div class="rating-tag">
+            <span>{{ item.rating }}</span> <span class="unit">分</span>
           </div>
         </div>
-        <div class="bottom-btn">
-          <el-button type="primary" block @click="handleBuyTicket(item)"
-          >选座购票</el-button
-          >
+
+        <div class="card-content">
+          <h3 class="movie-title" :title="item.title">{{ item.title }}</h3>
+          <div class="movie-meta">
+            <el-tag size="small" effect="plain">{{ item.genre }}</el-tag>
+            <span class="duration">{{ item.duration }}分钟</span>
+          </div>
+          <p class="director">导演：{{ item.director }}</p>
+
+          <div class="card-actions">
+            <el-button
+              type="primary"
+              block
+              color="#f56c6c"
+              @click="(e) => handleQuickBuy(item, e)"
+              style="font-weight: bold; width: 100%;"
+              class="buy-btn"
+            >
+              选座购票
+            </el-button>
+          </div>
         </div>
       </el-card>
     </div>
 
-    <el-dialog
-      v-model="seatDialogVisible"
-      :title="'购票 - ' + currentMovie.title"
-      width="850px"
-      append-to-body
-    >
-      <div class="booking-content">
-        <div class="show-select">
-          <span>选择场次：</span>
-          <el-radio-group
-            v-model="currentShowId"
-            size="default"
-            @change="handleShowChange"
-          >
-            <el-radio-button
-              v-for="show in showList"
-              :key="show.id"
-              :label="show.id"
-            >
-              {{ show.startTime.substring(5, 16) }}
-              ({{ show.roomName }})
-            </el-radio-button>
-          </el-radio-group>
-        </div>
+    <ReBookingDialog v-model:visible="seatDialogVisible" :movie="currentMovie" />
 
-        <el-divider />
-
-        <div class="screen-container">
-          <div class="screen">银幕中央</div>
-        </div>
-
-        <div class="seat-map-wrapper">
-          <div class="seat-map-container">
-            <div
-              v-for="(seats, rowNum) in seatsByRow"
-              :key="rowNum"
-              class="seat-row"
-            >
-              <div class="row-label">{{ rowNum }}排</div>
-              <div class="row-seats">
-                <el-tooltip
-                  v-for="seat in seats"
-                  :key="seat.id"
-                  effect="dark"
-                  :content="`${seat.type === 'vip' ? 'VIP' : '普通'} ￥${seat.price}`"
-                  placement="top"
-                >
-                  <div
-                    class="seat-item"
-                    :class="getSeatClass(seat)"
-                    @click="toggleSeat(seat)"
-                  >
-                    {{ seat.col }}
-                  </div>
-                </el-tooltip>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="legend">
-          <div class="legend-item"><span class="dot available" />普通</div>
-          <div class="legend-item"><span class="dot vip" />VIP</div>
-          <div class="legend-item"><span class="dot selected" />已选</div>
-          <div class="legend-item"><span class="dot sold" />已售/锁定</div>
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="footer-info">
-          <span
-          >已选：{{ selectedSeats.length }} 座 | 总价：<span
-            style="color: #f56c6c; font-weight: bold; font-size: 18px"
-          >
-              ￥{{ totalPrice.toFixed(2) }}
-            </span>
-          </span>
-          <el-button
-            type="primary"
-            size="large"
-            :disabled="selectedSeats.length === 0"
-            @click="confirmOrder"
-          >
-            确认支付
-          </el-button>
-        </div>
-      </template>
-    </el-dialog>
-
-    <el-dialog
-      v-model="orderDialogVisible"
-      title="我的订单"
-      width="900px"
-      append-to-body
-    >
+    <el-dialog v-model="orderDialogVisible" title="我的订单" width="900px" append-to-body>
       <el-table
         v-loading="orderLoading"
         :data="myOrders"
@@ -502,6 +332,7 @@ onMounted(() => {
         </el-table-column>
       </el-table>
     </el-dialog>
+
     <AiAssistant />
   </div>
 </template>
@@ -509,167 +340,159 @@ onMounted(() => {
 <style scoped>
 .portal-container {
   padding: 20px;
+  background-color: #f6f8fa;
+  min-height: 100vh;
 }
-.header-actions {
+
+.header-banner {
+  background: white;
+  padding: 20px 30px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  margin-bottom: 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
 }
-.welcome-text {
-  font-size: 16px;
-  font-weight: bold;
-  color: #333;
-}
+.header-content h2 { margin: 0 0 8px 0; color: #303133; }
+.header-content p { margin: 0; color: #909399; font-size: 14px; }
 
+/* 网格布局优化 */
 .movie-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 24px;
 }
+
+.movie-card {
+  border: none;
+  border-radius: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  overflow: hidden;
+  background: #fff;
+  position: relative;
+}
+
 .movie-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-.movie-info {
-  padding: 15px;
-}
-.rating span {
-  color: #ff9900;
-  font-weight: bold;
-}
-.bottom-btn {
-  padding: 10px;
-  border-top: 1px solid #eee;
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.1);
 }
 
-/* 选座区域 */
-.show-select {
-  text-align: center;
-  margin-bottom: 20px;
+/* 海报区域 */
+.poster-wrapper {
+  position: relative;
+  height: 340px; /* 固定高度，保持海报比例 */
+  background-color: #f0f2f5;
+  overflow: hidden;
 }
-.screen-container {
+
+.poster-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  transition: transform 0.5s ease;
+}
+
+.movie-card:hover .poster-image {
+  transform: scale(1.05);
+}
+
+/* 图片加载失败或无图时的占位 */
+.image-slot {
   display: flex;
   justify-content: center;
-  margin-bottom: 20px;
-}
-.screen {
-  background: #e0e0e0;
-  color: #999;
-  text-align: center;
-  padding: 4px;
-  border-radius: 0 0 40px 40px;
-  width: 50%;
-  font-size: 12px;
-}
-
-.seat-map-wrapper {
-  max-height: 400px;
-  overflow-y: auto;
-  padding: 10px;
-  border: 1px solid #f0f0f0;
-  border-radius: 4px;
-}
-.seat-map-container {
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  width: 100%;
+  height: 100%;
+  background: #eef2f7;
+  color: #909399;
+  font-size: 14px;
 }
-.seat-row {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-.row-label {
-  width: 30px;
-  text-align: right;
-  color: #999;
-  font-size: 12px;
-}
-.row-seats {
-  display: flex;
-  gap: 8px;
-}
-
-.seat-item {
-  width: 32px;
-  height: 32px;
-  line-height: 32px;
-  text-align: center;
-  font-size: 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  border: 1px solid #dcdfe6;
-  user-select: none;
-}
-.seat-item:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* 状态颜色 */
-.seat-available {
-  background: #fff;
-  color: #606266;
-}
-.seat-vip {
-  background: #fdf6ec;
-  border-color: #e6a23c;
-  color: #e6a23c;
+.image-slot.error span, .image-slot.default span {
+  font-size: 80px;
   font-weight: bold;
-}
-.seat-selected {
-  background: #409eff;
-  color: #fff;
-  border-color: #409eff;
-}
-.seat-sold {
-  background: #f56c6c;
-  color: #fff;
-  border-color: #f56c6c;
-  cursor: not-allowed;
-  opacity: 0.6;
+  color: #dcdfe6;
 }
 
-.legend {
-  margin-top: 15px;
+/* 评分标签 */
+.rating-tag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #ffcc00;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 16px;
+  backdrop-filter: blur(4px);
+}
+.rating-tag .unit { font-size: 12px; color: #fff; margin-left: 2px; }
+
+/* 悬停遮罩 */
+.poster-mask {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.3);
   display: flex;
   justify-content: center;
-  gap: 15px;
-}
-.legend-item {
-  display: flex;
   align-items: center;
-  font-size: 12px;
-  color: #666;
+  opacity: 0;
+  transition: opacity 0.3s;
 }
-.dot {
-  width: 12px;
-  height: 12px;
-  margin-right: 4px;
-  border-radius: 2px;
-  border: 1px solid #ccc;
-}
-.dot.available {
-  background: #fff;
-}
-.dot.vip {
-  background: #fdf6ec;
-  border-color: #e6a23c;
-}
-.dot.selected {
-  background: #409eff;
-  border-color: #409eff;
-}
-.dot.sold {
-  background: #f56c6c;
-  border-color: #f56c6c;
+.movie-card:hover .poster-mask { opacity: 1; }
+.play-icon {
+  font-size: 40px;
+  color: white;
+  background: rgba(255, 255, 255, 0.2);
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(2px);
 }
 
-.footer-info {
+/* 内容区域 */
+.card-content {
+  padding: 16px;
+}
+
+.movie-title {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  color: #303133;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.movie-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 8px;
+}
+.duration { color: #909399; font-size: 13px; }
+
+.director {
+  font-size: 13px;
+  color: #606266;
+  margin: 0 0 16px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-actions {
+  display: flex;
+}
+
+/* 统一购票按钮样式 */
+.buy-btn {
+  width: 100%;
+  /* 移除原有的线性渐变，使用 color="#f56c6c" */
+  font-weight: bold;
+  height: 36px;
+  border: none;
 }
 </style>

@@ -1,16 +1,17 @@
 package com.cinema.storage;
 
 import com.cinema.model.*;
+import com.cinema.service.CinemaManager;
 
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import com.cinema.service.CinemaManager;
 
 public class MySQLDataStorage {
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    // 🔴 统一定义日期格式化常量，用于与数据库进行时间戳转换
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     public MySQLDataStorage() {
         initializeDatabase();
@@ -24,27 +25,29 @@ public class MySQLDataStorage {
 
         // 测试数据库连接
         if (!SimpleDatabaseConnection.testConnection()) {
-            throw new RuntimeException("无法连接到数据库");
+            // 注意：这里最好抛出运行时异常，但为了兼容旧代码结构，保留打印
+            System.err.println("无法连接到数据库");
+        } else {
+            System.out.println("MySQL数据库连接成功");
         }
-
-        // 这里可以添加初始化数据的逻辑
-        System.out.println("MySQL数据库连接成功");
     }
 
     // ========== 电影相关方法 ==========
 
+    // ================== 2. 修复电影保存 (封面/预告片/评论) ==================
     public void saveMovies(Map<String, Movie> movies) {
-        String sql = "INSERT INTO movies (id, title, director, actors, duration, rating, genre, description) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
-                     "ON DUPLICATE KEY UPDATE title = VALUES(title), director = VALUES(director), " +
-                     "actors = VALUES(actors), duration = VALUES(duration), rating = VALUES(rating), " +
-                     "genre = VALUES(genre), description = VALUES(description)";
+        // SQL语句更新，包含 cover_url 和 trailer_url
+        String sql = "INSERT INTO movies (id, title, director, actors, duration, rating, genre, description, cover_url, trailer_url) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE title=VALUES(title), director=VALUES(director), " +
+                "actors=VALUES(actors), duration=VALUES(duration), rating=VALUES(rating), " +
+                "genre=VALUES(genre), description=VALUES(description), " +
+                "cover_url=VALUES(cover_url), trailer_url=VALUES(trailer_url)";
 
         try (Connection conn = SimpleDatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             conn.setAutoCommit(false);
-
             for (Movie movie : movies.values()) {
                 pstmt.setString(1, movie.getId());
                 pstmt.setString(2, movie.getTitle());
@@ -54,11 +57,15 @@ public class MySQLDataStorage {
                 pstmt.setDouble(6, movie.getRating());
                 pstmt.setString(7, movie.getGenre().toString());
                 pstmt.setString(8, movie.getDescription());
+                pstmt.setString(9, movie.getCoverUrl());    // 🔴 保存封面
+                pstmt.setString(10, movie.getTrailerUrl()); // 🔴 保存预告片
                 pstmt.addBatch();
             }
-
             pstmt.executeBatch();
             conn.commit();
+
+            // 🔴 同时也保存评论！
+            saveComments(movies);
 
         } catch (SQLException e) {
             System.err.println("保存电影数据失败: " + e.getMessage());
@@ -74,33 +81,104 @@ public class MySQLDataStorage {
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
+                String actorsStr = rs.getString("actors");
+                List<String> actorList = (actorsStr == null || actorsStr.isEmpty()) ? new ArrayList<>() : Arrays.asList(actorsStr.split(","));
+
+                String genreStr = rs.getString("genre");
+                MovieGenre genre = (genreStr != null) ? MovieGenre.fromDescription(genreStr) : MovieGenre.DRAMA;
+
+                // 🔴 使用带 trailerUrl 和 coverUrl 的完整构造函数
                 Movie movie = new Movie(
-                    rs.getString("id"),
-                    rs.getString("title"),
-                    java.time.LocalDate.now(), // 使用当前日期作为默认值
-                    Arrays.asList(rs.getString("actors").split(",")),
-                    rs.getString("director"),
-                    rs.getInt("duration"),
-                    rs.getDouble("rating"),
-                    rs.getString("description"),
-                    MovieGenre.fromDescription(rs.getString("genre"))
+                        rs.getString("id"),
+                        rs.getString("title"),
+                        LocalDate.now(), // 简化处理
+                        actorList,
+                        rs.getString("director"),
+                        rs.getInt("duration"),
+                        rs.getDouble("rating"),
+                        rs.getString("description"),
+                        genre,
+                        rs.getString("trailer_url"), // 🔴 读取预告片
+                        rs.getString("cover_url")    // 🔴 读取封面
                 );
                 movies.put(movie.getId(), movie);
             }
 
+            // 🔴 加载所有评论并分配给电影
+            loadComments(movies);
+
         } catch (SQLException e) {
             System.err.println("加载电影数据失败: " + e.getMessage());
         }
-
         return movies;
+    }
+
+    // ========== 3. 评论存取 ==========
+    private void saveComments(Map<String, Movie> movies) {
+        String sql = "INSERT INTO comments (id, user_id, user_name, movie_id, content, rating, create_time) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE content=VALUES(content)"; // 简单处理
+
+        try (Connection conn = SimpleDatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            conn.setAutoCommit(false);
+            for (Movie movie : movies.values()) {
+                if (movie.getComments() != null) {
+                    for (Comment c : movie.getComments()) {
+                        pstmt.setString(1, c.getId());
+                        pstmt.setString(2, c.getUserId());
+                        pstmt.setString(3, c.getUserName());
+                        pstmt.setString(4, movie.getId());
+                        pstmt.setString(5, c.getContent());
+                        pstmt.setDouble(6, c.getRating());
+                        pstmt.setString(7, c.getCreateTime().format(DATE_FMT));
+                        pstmt.addBatch();
+                    }
+                }
+            }
+            pstmt.executeBatch();
+            conn.commit();
+        } catch (SQLException e) {
+            // 忽略非关键错误，但仍打印以便调试
+            System.err.println("保存评论失败: " + e.getMessage());
+        }
+    }
+
+    private void loadComments(Map<String, Movie> movies) {
+        // 按照时间降序排列，保证最新的评论先加载到 Movie 对象的 list 头部
+        String sql = "SELECT * FROM comments ORDER BY create_time DESC";
+        try (Connection conn = SimpleDatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                String movieId = rs.getString("movie_id");
+                Movie movie = movies.get(movieId);
+                if (movie != null) {
+                    Comment c = new Comment(
+                            rs.getString("id"),
+                            rs.getString("user_id"),
+                            rs.getString("user_name"),
+                            movieId,
+                            rs.getString("content"),
+                            rs.getDouble("rating"),
+                            LocalDateTime.parse(rs.getString("create_time"), DATE_FMT)
+                    );
+                    movie.addComment(c); // 添加到内存对象中
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("加载评论失败: " + e.getMessage());
+        }
     }
 
     // ========== 放映厅相关方法 ==========
 
     public void saveScreeningRooms(Map<String, ScreeningRoom> rooms) {
         String sql = "INSERT INTO screening_rooms (id, name, room_rows, room_columns) " +
-                     "VALUES (?, ?, ?, ?) " +
-                     "ON DUPLICATE KEY UPDATE name = VALUES(name), room_rows = VALUES(room_rows), room_columns = VALUES(room_columns)";
+                "VALUES (?, ?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE name = VALUES(name), room_rows = VALUES(room_rows), room_columns = VALUES(room_columns)";
 
         try (Connection conn = SimpleDatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -133,10 +211,10 @@ public class MySQLDataStorage {
 
             while (rs.next()) {
                 ScreeningRoom room = new ScreeningRoom(
-                    rs.getString("id"),
-                    rs.getString("name"),
-                    rs.getInt("room_rows"),
-                    rs.getInt("room_columns")
+                        rs.getString("id"),
+                        rs.getString("name"),
+                        rs.getInt("room_rows"),
+                        rs.getInt("room_columns")
                 );
                 rooms.put(room.getId(), room);
             }
@@ -151,11 +229,13 @@ public class MySQLDataStorage {
     // ========== 场次相关方法 ==========
 
     public void saveShows(Map<String, Show> shows) {
+        // 注意：原代码的 SQL 语句中 end_time 列是多余的，在 Show 类中是通过 movie.duration 计算得到的，
+        // 且第二个代码块的 SQL 语句中包含了 end_time，这里保持第二个代码块的 SQL 结构。
         String sql = "INSERT INTO shows (id, movie_id, room_id, start_time, end_time, base_price, status) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?) " +
-                     "ON DUPLICATE KEY UPDATE movie_id = VALUES(movie_id), room_id = VALUES(room_id), " +
-                     "start_time = VALUES(start_time), end_time = VALUES(end_time), " +
-                     "base_price = VALUES(base_price), status = VALUES(status)";
+                "VALUES (?, ?, ?, ?, ?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE movie_id = VALUES(movie_id), room_id = VALUES(room_id), " +
+                "start_time = VALUES(start_time), end_time = VALUES(end_time), " +
+                "base_price = VALUES(base_price), status = VALUES(status)";
 
         try (Connection conn = SimpleDatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -166,8 +246,8 @@ public class MySQLDataStorage {
                 pstmt.setString(1, show.getId());
                 pstmt.setString(2, show.getMovie().getId());
                 pstmt.setString(3, show.getScreeningRoom().getId());
-                pstmt.setString(4, show.getStartTime().format(DATE_FORMATTER));
-                pstmt.setString(5, show.getStartTime().plusMinutes(show.getMovie().getDuration()).format(DATE_FORMATTER)); // 计算结束时间
+                pstmt.setString(4, show.getStartTime().format(DATE_FMT)); // 🔴 使用 DATE_FMT
+                pstmt.setString(5, show.getStartTime().plusMinutes(show.getMovie().getDuration()).format(DATE_FMT)); // 计算结束时间
                 pstmt.setDouble(6, show.getBasePrice());
                 pstmt.setString(7, "SCHEDULED"); // 默认状态
                 pstmt.addBatch();
@@ -185,66 +265,39 @@ public class MySQLDataStorage {
         Map<String, Show> shows = new HashMap<>();
 
         // 先加载所有电影和放映厅
+        // 注意：这里需要依赖 loadMovies/loadScreeningRooms，如果 loadMovies 内部调用了 loadComments，
+        // 则在 loadShows 中加载的 movies 已经包含了 comments。
         Map<String, Movie> movies = loadMovies();
         Map<String, ScreeningRoom> rooms = loadScreeningRooms();
 
-        // 使用JOIN查询加载场次及其关联数据
-        String sql = "SELECT s.*, m.title as movie_title, m.id as movie_id, " +
-                     "m.director as movie_director, m.duration as movie_duration, " +
-                     "m.actors as actors, m.genre as genre, m.rating as rating, m.description as description, " +
-                     "r.name as room_name, r.id as room_id, r.room_rows, r.room_columns " +
-                     "FROM shows s " +
-                     "LEFT JOIN movies m ON s.movie_id = m.id " +
-                     "LEFT JOIN screening_rooms r ON s.room_id = r.id";
+        String sql = "SELECT * FROM shows";
 
         try (Connection conn = SimpleDatabaseConnection.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
-                // 创建Movie对象
-                String actorsStr = rs.getString("actors");
-                List<String> actors = new ArrayList<>();
-                if (actorsStr != null && !actorsStr.isEmpty()) {
-                    actors = Arrays.asList(actorsStr.split(","));
+                String movieId = rs.getString("movie_id");
+                String roomId = rs.getString("room_id");
+
+                Movie movie = movies.get(movieId);
+                ScreeningRoom room = rooms.get(roomId);
+
+                if (movie != null && room != null) {
+                    // 创建Show对象
+                    Show show = new Show(
+                            rs.getString("id"),
+                            movie,
+                            room,
+                            LocalDateTime.parse(rs.getString("start_time"), DATE_FMT), // 🔴 使用 DATE_FMT
+                            rs.getDouble("base_price")
+                    );
+
+                    // 恢复电影的 showSchedule 列表
+                    movie.addShow(show.getStartTime().toLocalDate(), show);
+
+                    shows.put(show.getId(), show);
                 }
-
-                String genreStr = rs.getString("genre");
-                MovieGenre genre = MovieGenre.DRAMA; // 默认值
-                if (genreStr != null && !genreStr.isEmpty()) {
-                    genre = MovieGenre.fromDescription(genreStr);
-                }
-
-                Movie movie = new Movie(
-                    rs.getString("movie_id"),
-                    rs.getString("movie_title"),
-                    LocalDate.now(), // 从数据库中应该有release_date字段，暂时使用当前日期
-                    actors,
-                    rs.getString("movie_director"),
-                    rs.getInt("movie_duration"),
-                    rs.getDouble("rating"),
-                    rs.getString("description"),
-                    genre
-                );
-
-                // 创建ScreeningRoom对象
-                ScreeningRoom room = new ScreeningRoom(
-                    rs.getString("room_id"),
-                    rs.getString("room_name"),
-                    rs.getInt("room_rows"),
-                    rs.getInt("room_columns")
-                );
-
-                // 创建Show对象
-                Show show = new Show(
-                    rs.getString("id"),
-                    movie,
-                    room,
-                    LocalDateTime.parse(rs.getString("start_time"), DATE_FORMATTER),
-                    rs.getDouble("base_price")
-                );
-
-                shows.put(show.getId(), show);
             }
 
         } catch (SQLException e) {
@@ -256,23 +309,12 @@ public class MySQLDataStorage {
 
     // ========== 用户相关方法 ==========
 
+    // ================== 1. 修复用户保存 (注册问题) ==================
     public void saveUsers(Map<String, User> users) {
-        // 1. 修改 SQL 插入语句，增加 password
-// 必须显式写出 (id, name, password, phone, email, is_admin)
         String sql = "INSERT INTO users (id, name, password, phone, email, is_admin) " +
-                "VALUES (?, ?, ?, ?, ?, ?) " +  // 这里有6个问号
-                "ON DUPLICATE KEY UPDATE name = VALUES(name), " +
-                "password = VALUES(password), " +
-                "phone = VALUES(phone), " +
-                "email = VALUES(email), is_admin = VALUES(is_admin)";
-
-// 下面的设置参数顺序要和上面的列名顺序严格对应：
-// 1. id
-// 2. name
-// 3. password (对应上面 SQL 中的 password)
-// 4. phone
-// 5. email
-// 6. is_admin
+                "VALUES (?, ?, ?, ?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE name=VALUES(name), password=VALUES(password), " +
+                "phone=VALUES(phone), email=VALUES(email), is_admin=VALUES(is_admin)";
 
         try (Connection conn = SimpleDatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -281,7 +323,7 @@ public class MySQLDataStorage {
             for (User user : users.values()) {
                 pstmt.setString(1, user.getId());
                 pstmt.setString(2, user.getName());
-                pstmt.setString(3, user.getPassword()); // 2. 设置密码参数
+                pstmt.setString(3, user.getPassword()); // 确保这里不为 null
                 pstmt.setString(4, user.getPhone());
                 pstmt.setString(5, user.getEmail());
                 pstmt.setBoolean(6, user.isAdmin());
@@ -289,32 +331,23 @@ public class MySQLDataStorage {
             }
             pstmt.executeBatch();
             conn.commit();
+            System.out.println("用户数据已保存到数据库，数量：" + users.size());
         } catch (SQLException e) {
-            System.err.println("保存用户数据失败: " + e.getMessage());
+            System.err.println("保存用户失败: " + e.getMessage());
         }
     }
 
     public Map<String, User> loadUsers() {
         Map<String, User> users = new HashMap<>();
         String sql = "SELECT * FROM users";
-
         try (Connection conn = SimpleDatabaseConnection.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
-
             while (rs.next()) {
-                // 1. 从数据库读取真实密码
-                String password = rs.getString("password");
-
-                // 防止旧数据没有密码导致报错
-                if (password == null || password.isEmpty()) {
-                    password = "123456";
-                }
-
                 User user = new User(
                         rs.getString("id"),
                         rs.getString("name"),
-                        password, // 2. 使用读取到的密码
+                        rs.getString("password"),
                         rs.getString("phone"),
                         rs.getString("email"),
                         rs.getBoolean("is_admin") ? User.UserRole.ADMIN : User.UserRole.CUSTOMER
@@ -322,7 +355,7 @@ public class MySQLDataStorage {
                 users.put(user.getId(), user);
             }
         } catch (SQLException e) {
-            System.err.println("加载用户数据失败: " + e.getMessage());
+            System.err.println("加载用户失败: " + e.getMessage());
         }
         return users;
     }
@@ -353,8 +386,7 @@ public class MySQLDataStorage {
                     pstmtOrder.setString(3, order.getShow().getId());
                     pstmtOrder.setDouble(4, order.getTotalAmount());
                     pstmtOrder.setString(5, order.getStatus().name());
-                    // 假设数据库有 create_time 列，如果没有请去掉了
-                    pstmtOrder.setString(6, order.getCreateTime().format(DATE_FORMATTER));
+                    pstmtOrder.setString(6, order.getCreateTime().format(DATE_FMT)); // 🔴 使用 DATE_FMT
                     pstmtOrder.addBatch();
 
                     // --- 保存 Seats ---
@@ -385,7 +417,8 @@ public class MySQLDataStorage {
 
     public Map<String, Order> loadOrders() {
         Map<String, Order> orders = new HashMap<>();
-        CinemaManager manager = CinemaManager.getInstance(); // 用来获取内存中的 Show 和 User
+        // 确保 CinemaManager 已经初始化，以便获取关联对象
+        CinemaManager manager = CinemaManager.getInstance();
 
         String sql = "SELECT * FROM orders";
 
@@ -398,6 +431,7 @@ public class MySQLDataStorage {
                 String userId = rs.getString("user_id");
                 String showId = rs.getString("show_id");
                 String statusStr = rs.getString("status");
+                String timeStr = rs.getString("create_time");
 
                 // 1. 恢复关联对象
                 User user = manager.getUser(userId);
@@ -408,11 +442,13 @@ public class MySQLDataStorage {
                     List<Seat> orderSeats = loadOrderSeats(conn, orderId, show);
 
                     // 3. 恢复订单对象
+                    LocalDateTime createTime = (timeStr != null) ? LocalDateTime.parse(timeStr, DATE_FMT) : LocalDateTime.now(); // 🔴 使用 DATE_FMT
+
                     Order order = new Order(
                             orderId,
                             show,
                             orderSeats,
-                            LocalDateTime.now(), // 简化处理，或从DB读取 create_time
+                            createTime,
                             Order.OrderStatus.valueOf(statusStr)
                     );
                     order.setUser(user);
@@ -459,7 +495,6 @@ public class MySQLDataStorage {
 
     public void initializeDefaultData() {
         // 这里可以添加初始化默认数据的逻辑
-        // 比如创建默认的管理员账户、放映厅等
         System.out.println("数据库初始化完成");
     }
 

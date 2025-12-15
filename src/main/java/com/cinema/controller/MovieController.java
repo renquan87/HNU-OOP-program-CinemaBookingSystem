@@ -1,11 +1,14 @@
 package com.cinema.controller;
 
+import com.cinema.model.Comment;
 import com.cinema.model.Movie;
 import com.cinema.model.MovieGenre; // 确保导入了你的枚举
+import com.cinema.model.User;
 import com.cinema.service.CinemaManager;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -21,6 +24,13 @@ class MovieRequest {
     public String releaseTime; // 格式: "2023-01-01"
 }
 
+// 🔴 新增：评论请求体 DTO
+class CommentRequest {
+    public String userId;
+    public String content;
+    public double rating;
+}
+
 @RestController
 @RequestMapping("/api/movies")
 public class MovieController {
@@ -32,6 +42,17 @@ public class MovieController {
         List<Movie> movies = manager.getAllMovies();
 
         return buildResponse(200, "获取成功", movies);
+    }
+
+    // 🔴 新增：获取单个电影详情（包含评论）
+    @GetMapping("/{id}")
+    public Map<String, Object> getMovieDetail(@PathVariable String id) {
+        CinemaManager manager = CinemaManager.getInstance();
+        Movie movie = manager.getMovie(id);
+        if (movie == null) {
+            return buildResponse(404, "电影不存在", null);
+        }
+        return buildResponse(200, "获取成功", movie);
     }
 
     // 2. 添加电影
@@ -49,6 +70,8 @@ public class MovieController {
             // 处理日期
             LocalDate date = LocalDate.parse(req.releaseTime, DateTimeFormatter.ISO_LOCAL_DATE);
 
+            // 注意：Movie 构造函数应支持 String genre，或者在调用前转换
+            // 假设你的 Movie 类中已经有支持 String genre 的构造函数
             Movie movie = new Movie(
                     id,
                     req.title,
@@ -81,6 +104,37 @@ public class MovieController {
         manager.removeMovie(id);
         return buildResponse(200, "删除成功", null);
     }
+
+    // 🔴 新增：发表评论
+    @PostMapping("/{id}/comments")
+    public Map<String, Object> addComment(@PathVariable String id, @RequestBody CommentRequest req) {
+        CinemaManager manager = CinemaManager.getInstance();
+        Movie movie = manager.getMovie(id);
+        if (movie == null) return buildResponse(404, "电影不存在", null);
+
+        // 验证用户
+        User user = manager.getUser(req.userId);
+        // 注意：在实际应用中，用户验证（如token）比简单查ID更安全
+        if (user == null) return buildResponse(401, "用户未登录或ID无效", null);
+
+        // 创建评论对象
+        Comment comment = new Comment(
+                "COM-" + System.currentTimeMillis(), // 简单的ID生成
+                user.getId(),
+                user.getName(),
+                id,
+                req.content,
+                req.rating,
+                LocalDateTime.now()
+        );
+
+        // 调用 Service 层方法处理评论和更新评分
+        manager.addComment(id, comment);
+
+        // 返回创建的评论对象
+        return buildResponse(200, "评论成功", comment);
+    }
+
 
     // 辅助方法：构建统一响应格式
     private Map<String, Object> buildResponse(int code, String msg, Object data) {
