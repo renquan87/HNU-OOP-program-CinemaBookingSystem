@@ -210,6 +210,8 @@ login:
   purePhoneLogin: Phone Login
   pureQRCodeLogin: QRCode Login
   pureRegister: Register
+  pureNickName: Name
+  pureEmail: Email
   pureWeChatLogin: WeChat Login
   pureAlipayLogin: Alipay Login
   pureQQLogin: QQ Login
@@ -223,6 +225,8 @@ login:
   pureLoginSuccess: Login Success
   pureLoginFail: Login Fail
   pureRegisterSuccess: Regist Success
+  pureRegisterFail: Register failed
+  pureRegisterError: Register error
   pureTickPrivacy: Please tick Privacy Policy
   pureReadAccept: I have read it carefully and accept
   purePrivacyPolicy: Privacy Policy
@@ -236,6 +240,9 @@ login:
   purePhoneReg: Please enter the phone
   purePhoneCorrectReg: Please enter the correct phone number format
   purePassWordRuleReg: The password format should be any combination of 8-18 digits
+  pureNickNameReg: Please enter name
+  pureEmailReg: Please enter email
+  pureEmailCorrectReg: Please enter a valid email address
   purePassWordSureReg: Please enter confirm password
   purePassWordDifferentReg: The two passwords do not match!
   purePassWordUpdateReg: Password has been updated
