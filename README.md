@@ -112,6 +112,26 @@ CinemaBookingSystem/
 
 ## 快速开始
 
+想要快速开始，你可以直接运行脚本（Windows）
+
+```powershell
+# 第一次执行（如果被拦）
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+# 启动
+.\start.ps1
+```
+
+你也可以直接执行跨平台脚本（适用于各个Linux发行版，MacOS，Windows Git Bash或者MinGW Bash）
+
+```bash
+# 赋予执行权限（Linux / macOS / WSL）
+chmod +x start.sh
+# 启动
+./start.sh
+```
+
+如果出现问题，你也可以手动启动：
+
 ```shell
 mvn dependency:copy-dependencies -DoutputDirectory=lib # 依赖
 mvn clean compile # 编译
@@ -137,7 +157,7 @@ pnpm run dev
 
 IDEA可能有终端中文乱码问题，可搜教程解决。
 
-用MySQL Workbench或者Command Line可查看数据库存储情况。（具体查看[MySQLWorkbench.md](MySQLWorkbench.md)）
+用MySQL Workbench或者Command Line可查看数据库存储情况。（具体查看[MySQLWorkbench.md](docs/MySQLDataViewingAndManagementGuide.md)）
 
 ## 开发指南
 

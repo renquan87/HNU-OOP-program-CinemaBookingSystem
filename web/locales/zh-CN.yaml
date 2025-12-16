@@ -210,6 +210,8 @@ login:
   purePhoneLogin: 手机登录
   pureQRCodeLogin: 二维码登录
   pureRegister: 注册
+  pureNickName: 姓名
+  pureEmail: 电子邮箱
   pureWeChatLogin: 微信登录
   pureAlipayLogin: 支付宝登录
   pureQQLogin: QQ登录
@@ -223,6 +225,8 @@ login:
   pureLoginSuccess: 登录成功
   pureLoginFail: 登录失败
   pureRegisterSuccess: 注册成功
+  pureRegisterFail: 注册失败
+  pureRegisterError: 注册发生错误
   pureTickPrivacy: 请勾选隐私政策
   pureReadAccept: 我已仔细阅读并接受
   purePrivacyPolicy: 《隐私政策》
@@ -236,6 +240,9 @@ login:
   purePhoneReg: 请输入手机号码
   purePhoneCorrectReg: 请输入正确的手机号码格式
   purePassWordRuleReg: 密码格式应为8-18位数字、字母、符号的任意两种组合
+  pureNickNameReg: 请输入姓名
+  pureEmailReg: 请输入电子邮箱
+  pureEmailCorrectReg: 请输入正确的邮箱格式
   purePassWordSureReg: 请输入确认密码
   purePassWordDifferentReg: 两次密码不一致!
   purePassWordUpdateReg: 修改密码成功
