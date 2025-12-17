@@ -1,8 +1,9 @@
 import { http } from "@/utils/http";
+import type { ShowResult } from "./cinema/model/showModel";
 
 /** 获取所有场次 (可传movieId筛选) */
 export const getShowList = (movieId?: string) => {
-  return http.request<any>("get", "/api/shows", { params: { movieId } });
+  return http.request<ShowResult>("get", "/api/shows", { params: { movieId } });
 };
 
 /** 获取所有放映厅 */

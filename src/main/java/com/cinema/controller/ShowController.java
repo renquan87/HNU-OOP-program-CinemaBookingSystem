@@ -11,8 +11,8 @@ import com.cinema.model.DiscountSeat;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,21 +42,32 @@ public class ShowController {
             shows = manager.getAllShows();
         }
 
-        List<Map<String, Object>> showList = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+        shows.sort(Comparator.comparing(Show::getStartTime));
+
+        List<Map<String, Object>> upcomingShows = new ArrayList<>();
+        List<Map<String, Object>> historyShows = new ArrayList<>();
+
         for (Show show : shows) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("id", show.getId());
-            item.put("movieTitle", show.getMovieTitle());
-            item.put("movieId", show.getMovieId()); // 新增
-            item.put("roomName", show.getScreeningRoomName());
-            item.put("roomId", show.getScreeningRoomId()); // 新增
-            item.put("startTime", show.getStartTime().toString());
-            item.put("basePrice", show.getBasePrice());
-            item.put("availableSeats", show.getAvailableSeatsCount());
-            item.put("totalSeats", show.getTotalSeats());
-            showList.add(item);
+            Map<String, Object> item = toShowDto(show, now);
+            if (show.getStartTime().isAfter(now)) {
+                upcomingShows.add(item);
+            } else {
+                historyShows.add(item);
+            }
         }
-        return buildResponse(200, "获取成功", showList);
+
+        historyShows.sort((a, b) -> {
+            LocalDateTime t1 = LocalDateTime.parse(a.get("startTime").toString());
+            LocalDateTime t2 = LocalDateTime.parse(b.get("startTime").toString());
+            return t2.compareTo(t1);
+        });
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("serverTime", now.toString());
+        payload.put("upcomingShows", upcomingShows);
+        payload.put("historyShows", historyShows);
+        return buildResponse(200, "获取成功", payload);
     }
 
     // ... 原有的 getShowSeats ...
@@ -124,6 +135,21 @@ public class ShowController {
         }
         manager.removeShow(id);
         return buildResponse(200, "删除成功", null);
+    }
+
+    private Map<String, Object> toShowDto(Show show, LocalDateTime now) {
+        Map<String, Object> item = new HashMap<>();
+        item.put("id", show.getId());
+        item.put("movieTitle", show.getMovieTitle());
+        item.put("movieId", show.getMovieId());
+        item.put("roomName", show.getScreeningRoomName());
+        item.put("roomId", show.getScreeningRoomId());
+        item.put("startTime", show.getStartTime().toString());
+        item.put("basePrice", show.getBasePrice());
+        item.put("availableSeats", show.getAvailableSeatsCount());
+        item.put("totalSeats", show.getTotalSeats());
+        item.put("status", show.getStartTime().isAfter(now) ? "UPCOMING" : "HISTORY");
+        return item;
     }
 
     private Map<String, Object> buildResponse(int code, String msg, Object data) {

@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted, watch } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { getMovieList } from "@/api/cinema/movie";
 import {
-  getShowList,
   getShowSeats,
   createOrder,
   payOrder,
@@ -25,103 +24,11 @@ const loading = ref(false);
 const seatDialogVisible = ref(false);
 const currentMovie = ref<any>({});
 // 以下 seat/show 状态主要由 ReBookingDialog 内部使用或维护，但在外部仍需声明
-const showList = ref([]);
-const currentShowId = ref("");
-const seatList = ref([]);
-const selectedSeats = ref<string[]>([]);
 
 // 订单弹窗
 const orderDialogVisible = ref(false);
 const myOrders = ref([]);
 const orderLoading = ref(false);
-
-// WebSocket 实例
-let ws: WebSocket | null = null;
-
-// ================= 核心计算 (保留原逻辑) =================
-
-// 1. 修复座位布局：按行分组
-const seatsByRow = computed(() => {
-  const rows: Record<number, any[]> = {};
-  seatList.value.forEach((seat: any) => {
-    if (!rows[seat.row]) {
-      rows[seat.row] = [];
-    }
-    rows[seat.row].push(seat);
-  });
-  // 确保列排序
-  for (const r in rows) {
-    rows[r].sort((a, b) => a.col - b.col);
-  }
-  return rows;
-});
-
-// 2. 计算总价（防止浮点数精度问题）
-const totalPrice = computed(() => {
-  let total = 0;
-  selectedSeats.value.forEach(id => {
-    const seat = seatList.value.find((s: any) => s.id === id);
-    if (seat) total += seat.price;
-  });
-  return Math.round(total * 100) / 100;
-});
-
-// ================= WebSocket 实时逻辑 (保留原逻辑) =================
-// 注意：虽然购票逻辑移入了 ReBookingDialog，但如果这个页面需要维护 WebSocket 状态
-// (比如在 ReBookingDialog 关闭后进行清理)，这些逻辑仍然需要保留。
-
-const initWebSocket = (showId: string) => {
-  // 断开旧连接
-  if (ws) ws.close();
-  ws = new WebSocket(`ws://localhost:8081/ws/seats/${showId}`);
-  // ... (WebSocket 内部逻辑省略，保持原样)
-  ws.onopen = () => {
-    console.log(`[WebSocket] 已连接场次: ${showId}`);
-  };
-  ws.onmessage = (event) => {
-    if (event.data === "UPDATE") {
-      console.log("[WebSocket] 收到座位更新通知");
-      refreshSeatStatus(showId);
-    }
-  };
-  ws.onclose = () => {
-    console.log("[WebSocket] 连接已断开");
-  };
-};
-
-const refreshSeatStatus = async (showId: string) => {
-  const res = await getShowSeats(showId);
-  if (res.success) {
-    seatList.value = res.data;
-    const takenSeats = res.data.filter(
-      (s: any) =>
-        selectedSeats.value.includes(s.id) && s.status !== "available"
-    );
-
-    if (takenSeats.length > 0) {
-      takenSeats.forEach((s: any) => {
-        const idx = selectedSeats.value.indexOf(s.id);
-        if (idx !== -1) selectedSeats.value.splice(idx, 1);
-      });
-      ElNotification({
-        title: "手慢了",
-        message: "您选择的部分座位已被其他人锁定",
-        type: "warning"
-      });
-    }
-  }
-};
-
-watch(seatDialogVisible, newVal => {
-  if (!newVal && ws) {
-    ws.close();
-    ws = null;
-  }
-});
-
-onUnmounted(() => {
-  if (ws) ws.close();
-});
 
 // ================= 业务逻辑 =================
 

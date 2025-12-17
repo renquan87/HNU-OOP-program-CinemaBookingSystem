@@ -93,12 +93,25 @@ public class BookingService {
         return pricingStrategy;
     }
 
+    private void ensureShowNotStarted(Show show) throws InvalidBookingException {
+        if (show == null) {
+            throw new InvalidBookingException("场次不存在");
+        }
+        if (!show.getStartTime().isAfter(LocalDateTime.now())) {
+            throw new InvalidBookingException("场次已开始，无法下单", show.getId());
+        }
+    }
+
     // ================== 订单管理：创建 ==================
     public Order createOrder(User user, Show show, List<String> seatIds) throws InvalidBookingException, SeatNotAvailableException {
         // 简化校验，采用上段代码的校验逻辑
         if (show == null || user == null || seatIds == null || seatIds.isEmpty()) {
             throw new InvalidBookingException("参数无效");
         }
+
+        ensureShowNotStarted(show);
+
+        ensureShowNotStarted(show);
 
         List<Seat> selectedSeats = new ArrayList<>();
         // 锁座逻辑

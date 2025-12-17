@@ -312,7 +312,7 @@ public class DatabaseInitializer {
                 "VALUES ('SHOW-001', 'MOV-001', 'ROOM-001', '2025-12-01 10:00:00', 45.0, 'SCHEDULED')",
 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-001', 'MOV-001', 'ROOM-001', '2025-12-20 10:00:00', 45.0, 'SCHEDULED')",
+                "VALUES ('SHOW-010', 'MOV-001', 'ROOM-001', '2025-12-20 10:00:00', 45.0, 'SCHEDULED')",
                 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
                 "VALUES ('SHOW-002', 'MOV-001', 'ROOM-002', '2025-12-20 14:00:00', 50.0, 'SCHEDULED')",
