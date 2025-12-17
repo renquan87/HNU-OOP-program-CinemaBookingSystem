@@ -96,6 +96,8 @@ const confirmOrder = async () => {
       const payRes = await payOrder({ orderId: orderRes.data.orderId });
       if (payRes.success) {
         ElNotification({ title: "支付成功", type: "success" });
+        await loadSeats(currentShowId.value);
+        selectedSeats.value = [];
         emit("success");
         closeDialog();
       } else {
