@@ -9,24 +9,9 @@ $dbPasswordPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
     [Runtime.InteropServices.Marshal]::SecureStringToBSTR($dbPassword)
 )
 
-# 2. 修改 config.properties 中的 db.password
-$configPath = "src/main/resources/config.properties"
-
-if (-Not (Test-Path $configPath)) {
-    Write-Error "未找到 $configPath"
-    exit 1
-}
-
-(Get-Content $configPath) |
-    ForEach-Object {
-        if ($_ -match "^db\.password=") {
-            "db.password=$dbPasswordPlain"
-        } else {
-            $_
-        }
-    } | Set-Content $configPath
-
-Write-Host "数据库密码已写入 config.properties" -ForegroundColor Green
+# 2. 通过环境变量传递数据库密码
+$env:DB_PASSWORD = $dbPasswordPlain
+Write-Host "数据库密码已通过 DB_PASSWORD 环境变量提供" -ForegroundColor Green
 
 # 3. 拷贝依赖
 Write-Host "正在拷贝 Maven 依赖..." -ForegroundColor Cyan
@@ -40,7 +25,7 @@ if ($LASTEXITCODE -ne 0) { exit 1 }
 
 # 5. 初始化数据库
 Write-Host "正在初始化数据库..." -ForegroundColor Cyan
-java -cp "lib/*;target/classes" com.cinema.DatabaseInitializer
+java -cp "lib/*;target/classes" com.cinema.DatabaseInitializer "$dbPasswordPlain"
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 # 6. 启动后端（新终端）

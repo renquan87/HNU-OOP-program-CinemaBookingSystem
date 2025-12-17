@@ -1,5 +1,6 @@
 package com.cinema.storage;
 
+import com.cinema.config.DbPasswordResolver;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
@@ -112,21 +113,27 @@ public class SimpleDatabaseConnection {
      * 2. 如果失败，尝试从config.properties中加载
      */
     private static String loadPassword(String[] args, Properties props) {
-        // 1. 首先尝试从命令行参数获取
-        if (args != null && args.length > 0 && args[0] != null && !args[0].trim().isEmpty()) {
-            System.out.println("从命令行参数加载数据库密码");
-            return args[0].trim();
+        String password = DbPasswordResolver.fromEnvironment();
+        if (password != null) {
+            System.out.println("从 DB_PASSWORD 环境变量加载数据库密码");
+            return password;
         }
-        
+
+        password = DbPasswordResolver.fromCommandLine(args);
+        if (password != null) {
+            System.out.println("从命令行参数加载数据库密码");
+            return password;
+        }
+
         // 2. 如果失败，尝试从config.properties中加载
         if (props != null) {
-            String password = props.getProperty("db.password");
-            if (password != null && !password.trim().isEmpty()) {
+            password = DbPasswordResolver.fromProperties(props);
+            if (password != null) {
                 System.out.println("从config.properties加载数据库密码");
-                return password.trim();
+                return password;
             }
         }
-        
+
         // 如果都失败，使用默认值
         System.err.println("警告: 未找到数据库密码配置，使用默认密码");
         return "123421";
