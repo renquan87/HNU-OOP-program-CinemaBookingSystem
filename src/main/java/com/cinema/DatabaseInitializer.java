@@ -306,7 +306,11 @@ public class DatabaseInitializer {
             
             // 插入电影场次数据（每个电影3场）
             String[] insertSqls = {
-                // MOV-001: 阿凡达 - 3场
+                // MOV-001: 阿凡达 - 4场
+                //本场用来测试
+                "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
+                "VALUES ('SHOW-001', 'MOV-001', 'ROOM-001', '2025-12-01 10:00:00', 45.0, 'SCHEDULED')",
+
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
                 "VALUES ('SHOW-001', 'MOV-001', 'ROOM-001', '2025-12-20 10:00:00', 45.0, 'SCHEDULED')",
                 
