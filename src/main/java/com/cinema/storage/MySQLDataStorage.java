@@ -36,13 +36,13 @@ public class MySQLDataStorage {
 
     // ================== 2. 修复电影保存 (封面/预告片/评论) ==================
     public void saveMovies(Map<String, Movie> movies) {
-        // SQL语句更新，包含 cover_url 和 trailer_url
-        String sql = "INSERT INTO movies (id, title, director, actors, duration, rating, genre, description, cover_url, trailer_url) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+        // SQL语句更新，包含 cover_url、trailer_url 和 release_date
+        String sql = "INSERT INTO movies (id, title, director, actors, duration, rating, genre, description, cover_url, trailer_url, release_date) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
                 "ON DUPLICATE KEY UPDATE title=VALUES(title), director=VALUES(director), " +
                 "actors=VALUES(actors), duration=VALUES(duration), rating=VALUES(rating), " +
                 "genre=VALUES(genre), description=VALUES(description), " +
-                "cover_url=VALUES(cover_url), trailer_url=VALUES(trailer_url)";
+                "cover_url=VALUES(cover_url), trailer_url=VALUES(trailer_url), release_date=VALUES(release_date)";
 
         try (Connection conn = SimpleDatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -59,6 +59,7 @@ public class MySQLDataStorage {
                 pstmt.setString(8, movie.getDescription());
                 pstmt.setString(9, movie.getCoverUrl());    // 🔴 保存封面
                 pstmt.setString(10, movie.getTrailerUrl()); // 🔴 保存预告片
+                pstmt.setDate(11, movie.getReleaseTime() != null ? java.sql.Date.valueOf(movie.getReleaseTime()) : null); // 🔴 保存上映日期
                 pstmt.addBatch();
             }
             pstmt.executeBatch();
@@ -87,11 +88,15 @@ public class MySQLDataStorage {
                 String genreStr = rs.getString("genre");
                 MovieGenre genre = (genreStr != null) ? MovieGenre.fromDescription(genreStr) : MovieGenre.DRAMA;
 
+                // 读取上映日期
+                java.sql.Date releaseDate = rs.getDate("release_date");
+                LocalDate releaseTime = (releaseDate != null) ? releaseDate.toLocalDate() : LocalDate.now();
+
                 // 🔴 使用带 trailerUrl 和 coverUrl 的完整构造函数
                 Movie movie = new Movie(
                         rs.getString("id"),
                         rs.getString("title"),
-                        LocalDate.now(), // 简化处理
+                        releaseTime, // 🔴 使用数据库中的上映日期
                         actorList,
                         rs.getString("director"),
                         rs.getInt("duration"),

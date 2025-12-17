@@ -29,6 +29,7 @@ CREATE TABLE movies (
                         description TEXT,
                         cover_url TEXT,
                         trailer_url TEXT,
+                        release_date DATE,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -90,7 +91,6 @@ CREATE TABLE orders (
                         show_id VARCHAR(50) NOT NULL,
                         total_amount DOUBLE NOT NULL,
                         status VARCHAR(20) DEFAULT 'PENDING',
-                        payment_status VARCHAR(20) DEFAULT 'UNPAID',
                         create_time VARCHAR(30) DEFAULT NULL,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

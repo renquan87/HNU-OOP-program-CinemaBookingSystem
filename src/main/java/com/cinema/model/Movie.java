@@ -1,5 +1,6 @@
 package com.cinema.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +13,7 @@ public class Movie implements java.io.Serializable {
 
     private String id;
     private String title;
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate releaseTime;
     private List<String> actors;
     private String director;

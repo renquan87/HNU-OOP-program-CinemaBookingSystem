@@ -183,17 +183,17 @@ public class DatabaseInitializer {
             
             // 插入电影数据
             String[] insertSqls = {
-                "INSERT INTO movies (id, title, director, actors, duration, rating, genre, description, cover_url, trailer_url) " +
+                "INSERT INTO movies (id, title, director, actors, duration, rating, genre, description, cover_url, trailer_url, release_date) " +
                 "VALUES ('MOV-001', '阿凡达：水之道', '詹姆斯·卡梅隆', '萨姆·沃辛顿,佐伊·索尔达娜', 192, 9.0, 'ACTION', " +
-                "'杰克·萨利与妻子奈蒂莉组建了家庭，他们的孩子也逐渐成长。', '/media/covers/1.jpg', '/media/trailers/1.mp4')",
+                "'杰克·萨利与妻子奈蒂莉组建了家庭，他们的孩子也逐渐成长。', '/media/covers/1.jpg', '/media/trailers/1.mp4', '2022-12-16')",
                 
-                "INSERT INTO movies (id, title, director, actors, duration, rating, genre, description, cover_url, trailer_url) " +
+                "INSERT INTO movies (id, title, director, actors, duration, rating, genre, description, cover_url, trailer_url, release_date) " +
                 "VALUES ('MOV-002', '流浪地球2', '郭帆', '吴京,刘德华,李雪健', 173, 8.3, 'DRAMA', " +
-                "'太阳即将毁灭，人类在地球表面建造出巨大的推进器，寻找新的家园。然而宇宙之路危机四伏。', '/media/covers/2.jpg', '/media/trailers/2.mp4')",
+                "'太阳即将毁灭，人类在地球表面建造出巨大的推进器，寻找新的家园。然而宇宙之路危机四伏。', '/media/covers/2.jpg', '/media/trailers/2.mp4', '2023-01-22')",
                 
-                "INSERT INTO movies (id, title, director, actors, duration, rating, genre, description, cover_url, trailer_url) " +
+                "INSERT INTO movies (id, title, director, actors, duration, rating, genre, description, cover_url, trailer_url, release_date) " +
                 "VALUES ('MOV-003', '满江红', '张艺谋', '沈腾,易烊千玺,张译,雷佳音', 159, 7.9, 'ACTION', " +
-                "'南宋绍兴年间，岳飞死后四年，秦桧率兵与金国会谈。会谈前夜，金国使者死在宰相驻地。', '/media/covers/3.jpg', '/media/trailers/3.mp4')"
+                "'南宋绍兴年间，岳飞死后四年，秦桧率兵与金国会谈。会谈前夜，金国使者死在宰相驻地。', '/media/covers/3.jpg', '/media/trailers/3.mp4', '2023-01-22')"
             };
             
             for (String sql : insertSqls) {
@@ -301,33 +301,33 @@ public class DatabaseInitializer {
             String[] insertSqls = {
                 // MOV-001: 阿凡达 - 3场
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-001', 'MOV-001', 'ROOM-001', '2025-12-16 10:00:00', 45.0, 'SCHEDULED')",
+                "VALUES ('SHOW-001', 'MOV-001', 'ROOM-001', '2025-12-20 10:00:00', 45.0, 'SCHEDULED')",
                 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-002', 'MOV-001', 'ROOM-002', '2025-12-16 14:00:00', 50.0, 'SCHEDULED')",
+                "VALUES ('SHOW-002', 'MOV-001', 'ROOM-002', '2025-12-20 14:00:00', 50.0, 'SCHEDULED')",
                 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-003', 'MOV-001', 'ROOM-003', '2025-12-16 19:00:00', 55.0, 'SCHEDULED')",
+                "VALUES ('SHOW-003', 'MOV-001', 'ROOM-003', '2025-12-20 19:00:00', 55.0, 'SCHEDULED')",
                 
                 // MOV-002: 流浪地球2 - 3场
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-004', 'MOV-002', 'ROOM-001', '2025-12-17 10:00:00', 48.0, 'SCHEDULED')",
+                "VALUES ('SHOW-004', 'MOV-002', 'ROOM-001', '2025-12-21 10:00:00', 48.0, 'SCHEDULED')",
                 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-005', 'MOV-002', 'ROOM-002', '2025-12-17 14:00:00', 52.0, 'SCHEDULED')",
+                "VALUES ('SHOW-005', 'MOV-002', 'ROOM-002', '2025-12-21 14:00:00', 52.0, 'SCHEDULED')",
                 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-006', 'MOV-002', 'ROOM-003', '2025-12-17 19:00:00', 58.0, 'SCHEDULED')",
+                "VALUES ('SHOW-006', 'MOV-002', 'ROOM-003', '2025-12-21 19:00:00', 58.0, 'SCHEDULED')",
                 
                 // MOV-003: 满江红 - 3场
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-007', 'MOV-003', 'ROOM-001', '2025-12-18 10:00:00', 46.0, 'SCHEDULED')",
+                "VALUES ('SHOW-007', 'MOV-003', 'ROOM-001', '2025-12-22 10:00:00', 46.0, 'SCHEDULED')",
                 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-008', 'MOV-003', 'ROOM-002', '2025-12-18 14:00:00', 51.0, 'SCHEDULED')",
+                "VALUES ('SHOW-008', 'MOV-003', 'ROOM-002', '2025-12-22 14:00:00', 51.0, 'SCHEDULED')",
                 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-009', 'MOV-003', 'ROOM-003', '2025-12-18 19:00:00', 56.0, 'SCHEDULED')"
+                "VALUES ('SHOW-009', 'MOV-003', 'ROOM-003', '2025-12-22 19:00:00', 56.0, 'SCHEDULED')"
             };
             
             for (String sql : insertSqls) {

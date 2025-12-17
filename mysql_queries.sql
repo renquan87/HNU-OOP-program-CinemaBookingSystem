@@ -46,8 +46,7 @@ SELECT
     s.start_time as 场次时间,
     o.total_amount as 总金额,
     o.status as 订单状态,
-    o.payment_status as 支付状态,
-    o.created_at as 创建时间
+    o.create_time as 创建时间
 FROM orders o
 LEFT JOIN users u ON o.user_id = u.id
 LEFT JOIN shows s ON o.show_id = s.id
@@ -75,7 +74,7 @@ FROM users;
 -- 订单统计
 SELECT 
     COUNT(*) as 总订单数,
-    SUM(CASE WHEN payment_status = 'PAID' THEN 1 ELSE 0 END) as 已支付订单,
+    SUM(CASE WHEN status = 'PAID' THEN 1 ELSE 0 END) as 已支付订单,
     SUM(total_amount) as 总收入
 FROM orders;
 
@@ -123,7 +122,7 @@ SELECT
     SUM(o.total_amount) as 票房收入
 FROM movies m
 LEFT JOIN shows s ON m.id = s.movie_id
-LEFT JOIN orders o ON s.id = o.show_id AND o.payment_status = 'PAID'
+LEFT JOIN orders o ON s.id = o.show_id AND o.status = 'PAID'
 GROUP BY m.id, m.title
 ORDER BY SUM(o.total_amount) DESC;
 

@@ -107,6 +107,9 @@ public class BookingService {
             if (seat == null || !seat.isAvailable()) {
                 throw new SeatNotAvailableException(seatId, "座位不可用");
             }
+            // 使用定价策略计算实际价格并更新座位价格
+            double actualPrice = calculateSeatPrice(show, seat);
+            seat.setBasePrice(actualPrice);
             // 暂时锁定座位
             seat.lock();
             selectedSeats.add(seat);
@@ -254,6 +257,9 @@ public class BookingService {
             if (seat == null || !seat.isAvailable()) {
                 throw new SeatNotAvailableException(seatId, "座位不可用");
             }
+            // 使用定价策略计算实际价格并更新座位价格
+            double actualPrice = calculateSeatPrice(show, seat);
+            seat.setBasePrice(actualPrice);
             seat.lock(); // 锁定座位
             selectedSeats.add(seat);
         }

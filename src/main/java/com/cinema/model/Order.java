@@ -88,15 +88,9 @@ public class Order implements java.io.Serializable {
 
     public double calculateTotal() {
         double total = 0.0;
-        // 使用基础价格计算，避免循环依赖
+        // 直接使用座位的基础价格，该价格已经由 Show 根据场次设置正确
         for (Seat seat : seats) {
-            if (seat instanceof VIPSeat) {
-                total += seat.getBasePrice() * 1.5; // VIP座位1.5倍价格
-            } else if (seat instanceof DiscountSeat) {
-                total += seat.getBasePrice() * 0.8; // 折扣座位0.8倍价格
-            } else {
-                total += seat.getBasePrice(); // 普通座位原价
-            }
+            total += seat.getBasePrice();
         }
         this.totalAmount = total;
         return total;

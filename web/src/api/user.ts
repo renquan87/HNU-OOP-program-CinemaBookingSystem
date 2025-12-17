@@ -47,3 +47,50 @@ export const getRegister = (data?: object) => {
 export const refreshTokenApi = (data?: object) => {
   return http.request<RefreshTokenResult>("post", "/refreshToken", { data });
 };
+
+// 用户信息类型
+export type UserInfo = {
+  avatar: string;
+  nickname: string;
+  email: string;
+  phone: string;
+  description: string;
+};
+
+// 用户信息返回类型
+export type UserInfoResult = {
+  success: boolean;
+  data: UserInfo;
+};
+
+// 安全日志类型
+export type SecurityLog = {
+  id: number;
+  summary: string;
+  ip: string;
+  address: string;
+  system: string;
+  browser: string;
+  operatingTime: string;
+};
+
+// 安全日志返回类型
+export type SecurityLogsResult = {
+  success: boolean;
+  data: {
+    list: Array<SecurityLog>;
+    total: number;
+    pageSize: number;
+    currentPage: number;
+  };
+};
+
+/** 获取当前用户信息 */
+export const getMine = () => {
+  return http.request<UserInfoResult>("get", "/api/user/mine");
+};
+
+/** 获取用户安全日志 */
+export const getMineLogs = () => {
+  return http.request<SecurityLogsResult>("get", "/api/user/logs");
+};
