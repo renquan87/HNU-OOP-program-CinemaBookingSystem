@@ -3,6 +3,7 @@ import { ref, computed, watch, onUnmounted } from "vue";
 import { getShowList, getShowSeats, createOrder, payOrder } from "@/api/cinema/index";
 import { ElNotification } from "element-plus";
 import { useUserStoreHook } from "@/store/modules/user";
+import type { ShowItem } from "@/api/cinema/model/showModel";
 
 const props = defineProps({
   visible: Boolean,
@@ -12,7 +13,9 @@ const props = defineProps({
 const emit = defineEmits(["update:visible", "success"]);
 
 const userStore = useUserStoreHook();
-const showList = ref([]);
+const upcomingShows = ref<ShowItem[]>([]);
+const historyShows = ref<ShowItem[]>([]);
+const serverTime = ref("");
 const currentShowId = ref("");
 const seatList = ref([]);
 const selectedSeats = ref<string[]>([]);
@@ -34,6 +37,12 @@ const totalPrice = computed(() => {
   });
   return Math.round(total * 100) / 100;
 });
+
+const serverTimeLabel = computed(() =>
+  serverTime.value ? serverTime.value.replace("T", " ") : ""
+);
+
+const formatTime = (value: string) => (value ? value.replace("T", " ") : "-");
 
 let ws: WebSocket | null = null;
 
@@ -61,7 +70,8 @@ const toggleSeat = (seat: any) => {
   const index = selectedSeats.value.indexOf(seat.id);
   if (index !== -1) selectedSeats.value.splice(index, 1);
   else {
-    if (selectedSeats.value.length >= 4) return ElNotification({ title: "提示", message: "限购4张", type: "warning" });
+    if (selectedSeats.value.length >= 4)
+      return ElNotification({ title: "提示", message: "限购4张", type: "warning" });
     selectedSeats.value.push(seat.id);
   }
 };
@@ -86,6 +96,8 @@ const confirmOrder = async () => {
       const payRes = await payOrder({ orderId: orderRes.data.orderId });
       if (payRes.success) {
         ElNotification({ title: "支付成功", type: "success" });
+        await loadSeats(currentShowId.value);
+        selectedSeats.value = [];
         emit("success");
         closeDialog();
       } else {
@@ -104,23 +116,34 @@ const closeDialog = () => {
   emit("update:visible", false);
 };
 
-// 监听弹窗打开，加载数据
-watch(() => props.visible, async (val) => {
-  if (val && props.movie) {
-    const res = await getShowList(props.movie.id);
-    if (res.data && res.data.length > 0) {
-      showList.value = res.data;
-      currentShowId.value = res.data[0].id;
-      await loadSeats(currentShowId.value);
-      initWebSocket(currentShowId.value);
-    } else {
-      ElNotification({ title: "提示", message: "暂无排片", type: "warning" });
-      emit("update:visible", false);
+watch(
+  () => props.visible,
+  async (val) => {
+    if (val && props.movie) {
+      const res = await getShowList(props.movie.id);
+      if (res.success && res.data && res.data.upcomingShows.length > 0) {
+        upcomingShows.value = res.data.upcomingShows;
+        historyShows.value = res.data.historyShows || [];
+        serverTime.value = res.data.serverTime;
+        currentShowId.value = upcomingShows.value[0].id;
+        await loadSeats(currentShowId.value);
+        initWebSocket(currentShowId.value);
+      } else {
+        upcomingShows.value = [];
+        historyShows.value = res.success && res.data ? res.data.historyShows || [] : [];
+        ElNotification({ title: "提示", message: "暂无排片", type: "warning" });
+        emit("update:visible", false);
+      }
+    } else if (!val && ws) {
+      ws.close();
+      ws = null;
     }
   }
-});
+);
 
-onUnmounted(() => { if (ws) ws.close(); });
+onUnmounted(() => {
+  if (ws) ws.close();
+});
 </script>
 
 <template>
@@ -131,15 +154,17 @@ onUnmounted(() => { if (ws) ws.close(); });
     append-to-body
     @close="closeDialog"
   >
-    <div class="booking-content" v-if="showList.length > 0">
+    <div class="booking-content" v-if="upcomingShows.length > 0">
       <div class="show-select">
         <span>选择场次：</span>
         <el-radio-group v-model="currentShowId" @change="handleShowChange">
-          <el-radio-button v-for="show in showList" :key="show.id" :label="show.id">
-            {{ show.startTime.substring(5, 16) }} ({{ show.roomName }})
+          <el-radio-button v-for="show in upcomingShows" :key="show.id" :label="show.id">
+            {{ formatTime(show.startTime) }} ({{ show.roomName }})
           </el-radio-button>
         </el-radio-group>
       </div>
+
+      <p v-if="serverTimeLabel" class="server-time">服务器时间：{{ serverTimeLabel }}</p>
 
       <el-divider />
 
@@ -164,6 +189,23 @@ onUnmounted(() => { if (ws) ws.close(); });
         <div class="legend-item"><span class="dot selected" />已选</div>
         <div class="legend-item"><span class="dot sold" />售/锁</div>
       </div>
+
+      <div class="history-block" v-if="historyShows.length > 0">
+        <p class="history-title">历史场次</p>
+        <div class="history-tags">
+          <el-tag
+            v-for="show in historyShows"
+            :key="show.id"
+            type="info"
+            class="history-tag"
+          >
+            {{ formatTime(show.startTime) }} · {{ show.roomName }}
+          </el-tag>
+        </div>
+      </div>
+    </div>
+    <div v-else class="empty-state">
+      <p>当前暂无可售排片。</p>
     </div>
 
     <template #footer>
@@ -193,6 +235,15 @@ onUnmounted(() => { if (ws) ws.close(); });
 .legend { margin-top: 15px; display: flex; justify-content: center; gap: 15px; }
 .legend-item { display: flex; align-items: center; font-size: 12px; }
 .dot { width: 12px; height: 12px; margin-right: 4px; border-radius: 2px; border: 1px solid #ccc; }
-.dot.available { background: #fff; } .dot.vip { background: #fdf6ec; border-color: #e6a23c; } .dot.selected { background: #409eff; border-color: #409eff; } .dot.sold { background: #f56c6c; border-color: #f56c6c; }
+.dot.available { background: #fff; }
+.dot.vip { background: #fdf6ec; border-color: #e6a23c; }
+.dot.selected { background: #409eff; border-color: #409eff; }
+.dot.sold { background: #f56c6c; border-color: #f56c6c; }
 .footer-info { display: flex; justify-content: space-between; align-items: center; }
+.server-time { text-align: center; color: #909399; font-size: 13px; margin: 8px 0 12px; }
+.history-block { margin-top: 16px; border-top: 1px dashed #ebeef5; padding-top: 14px; }
+.history-title { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
+.history-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.history-tag { margin: 0; }
+.empty-state { padding: 60px 20px; text-align: center; color: #a0a7b7; }
 </style>
