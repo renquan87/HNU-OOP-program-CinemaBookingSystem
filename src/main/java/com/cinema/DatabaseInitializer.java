@@ -1,5 +1,6 @@
 package com.cinema;
 
+import com.cinema.config.DbPasswordResolver;
 import com.cinema.storage.SimpleDatabaseConnection;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -144,28 +145,34 @@ public class DatabaseInitializer {
      * 2. 如果失败，尝试从config.properties中加载
      */
     private static String loadPassword(String[] args) {
-        // 1. 首先尝试从命令行参数获取
-        if (args != null && args.length > 0 && args[0] != null && !args[0].trim().isEmpty()) {
-            System.out.println("从命令行参数加载数据库密码");
-            return args[0].trim();
+        String password = DbPasswordResolver.fromEnvironment();
+        if (password != null) {
+            System.out.println("从 DB_PASSWORD 环境变量加载数据库密码");
+            return password;
         }
-        
+
+        password = DbPasswordResolver.fromCommandLine(args);
+        if (password != null) {
+            System.out.println("从命令行参数加载数据库密码");
+            return password;
+        }
+
         // 2. 如果失败，尝试从config.properties中加载
         try {
             Properties props = new Properties();
             InputStream input = DatabaseInitializer.class.getClassLoader().getResourceAsStream("config.properties");
             if (input != null) {
                 props.load(input);
-                String password = props.getProperty("db.password");
-                if (password != null && !password.trim().isEmpty()) {
+                password = DbPasswordResolver.fromProperties(props);
+                if (password != null) {
                     System.out.println("从config.properties加载数据库密码");
-                    return password.trim();
+                    return password;
                 }
             }
         } catch (Exception e) {
             System.err.println("读取config.properties失败: " + e.getMessage());
         }
-        
+
         // 如果都失败，使用默认值
         System.err.println("警告: 未找到数据库密码配置，使用默认密码");
         return "123421";

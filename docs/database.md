@@ -7,7 +7,8 @@
 # 数据库连接配置
 db.url=jdbc:mysql://localhost:3306/cinema_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
 db.username=root
-db.password=123421
+# db.password 保持空白，避免将凭据提交到仓库
+# 启动脚本通过 DB_PASSWORD 环境变量提供密码
 db.driver=com.mysql.cj.jdbc.Driver
 
 # 连接池配置
@@ -23,6 +24,7 @@ db.pool.maxLifetime=1800000
 - `useSSL=false`: 禁用SSL（开发环境）
 - `serverTimezone=UTC`: 设置时区
 - `allowPublicKeyRetrieval=true`: MySQL 8.x必需参数
+- `db.password` 保持为空，启动脚本通过 `DB_PASSWORD` 环境变量提供密码，避免将凭据提交到仓库
 
 ## 数据库表结构
 
