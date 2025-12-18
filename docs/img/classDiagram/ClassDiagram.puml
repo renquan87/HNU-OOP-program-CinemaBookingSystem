@@ -1,0 +1,818 @@
+@startuml
+class com.cinema.model.VIPSeat {
+- {static} double PRICE_PREMIUM
++ String toString()
+}
+
+
+class com.cinema.service.NotificationService {
+- {static} NotificationService instance
+- Map<String,List<AppNotification>> userNotifications
++ {static} NotificationService getInstance()
++ void sendOrderUpdate(User,Order,String)
++ void sendBroadcast(String)
+- void addNotification(String,AppNotification)
++ List<AppNotification> getUserNotifications(String)
+}
+
+
+class com.cinema.TestUIFixes {
++ {static} void main(String[])
+}
+
+class com.cinema.strategy.StandardPricing {
++ double calculatePrice(Show,Seat)
+- boolean isWeekend(int)
+}
+
+class com.cinema.storage.SimpleDatabaseConnection {
+- {static} String url
+- {static} String username
+- {static} String password
+- {static} String driver
+- {static} boolean driverAvailable
+- {static} boolean initialized
+- {static} String[] commandLineArgs
++ {static} void setCommandLineArgs(String[])
+- {static} void initialize()
++ {static} Connection getConnection()
++ {static} boolean testConnection()
++ {static} boolean isDriverAvailable()
+- {static} String loadPassword(String[],Properties)
+}
+
+
+class com.cinema.exception.InvalidBookingException {
+- String bookingDetails
++ String getBookingDetails()
+}
+
+
+class com.cinema.service.CinemaManager {
+- {static} CinemaManager instance
+- Map<String,Movie> movies
+- Map<String,ScreeningRoom> rooms
+- Map<String,Show> shows
+- Map<String,User> users
+- MySQLDataStorage mysqlDataStorage
+- boolean useMySQL
+- DisplayService displayService
++ {static} CinemaManager getInstance()
+- void initializeDefaultData()
++ void addMovie(Movie)
++ void removeMovie(String)
++ void addComment(String,Comment)
++ void addShow(Show)
++ void removeShow(String)
++ void addScreeningRoom(ScreeningRoom)
++ void removeScreeningRoom(String)
++ void addUser(User)
++ void removeUser(String)
++ Movie getMovie(String)
++ List<Movie> getAllMovies()
++ ScreeningRoom getScreeningRoom(String)
++ List<ScreeningRoom> getAllScreeningRooms()
++ Show getShow(String)
++ List<Show> getAllShows()
++ List<Show> getShowsByMovie(String)
++ List<Show> getShowsByDate(LocalDate)
++ User getUser(String)
++ List<User> getAllUsers()
++ List<Show> searchShows(String,LocalDate)
+- void loadData()
++ void saveMovies()
++ void saveRooms()
++ void saveShows()
++ void saveUsers()
++ void saveAllData()
++ void shutdown()
+}
+
+
+class com.cinema.config.HttpResponseConfig {
++ void configureContentNegotiation(ContentNegotiationConfigurer)
+}
+
+class com.cinema.model.RegularSeat {
+- {static} double DEFAULT_BASE_PRICE
++ String toString()
+}
+
+
+class com.cinema.controller.MovieRequest {
++ String title
++ String director
++ String actors
++ int duration
++ double rating
++ String description
++ String genre
++ String releaseTime
+}
+
+class com.cinema.controller.CommentRequest {
++ String userId
++ String content
++ double rating
+}
+
+class com.cinema.controller.MovieController {
++ Map<String,Object> getAllMovies()
++ Map<String,Object> getMovieDetail(String)
++ Map<String,Object> addMovie(MovieRequest)
++ Map<String,Object> deleteMovie(String)
++ Map<String,Object> addComment(String,CommentRequest)
+- Map<String,Object> buildResponse(int,String,Object)
+}
+
+class com.cinema.controller.ChatRequest {
++ String message
+}
+
+class com.cinema.controller.AiChatController {
++ Map<String,Object> askAi(ChatRequest)
+}
+
+class com.cinema.TestAdminUser {
++ {static} void main(String[])
+}
+
+class com.cinema.controller.SeatDTO {
++ String id
++ int row
++ int col
++ String type
++ String status
++ double price
+}
+
+class com.cinema.DebugUserData {
++ {static} void main(String[])
+}
+
+class com.cinema.config.HttpResponseInterceptor {
++ boolean preHandle(HttpServletRequest,HttpServletResponse,Object)
++ void afterCompletion(HttpServletRequest,HttpServletResponse,Object,Exception)
+}
+
+class com.cinema.Main {
++ {static} void main(String[])
+}
+
+class com.cinema.DatabaseInitializer {
+- {static} String dbPassword
++ {static} void main(String[])
+- {static} void executeSqlScript(String)
+- {static} void dropTablesIfExists(Statement)
+- {static} String loadPassword(String[])
+- {static} void initializeMovieData()
+- {static} void initializeUserData()
+- {static} void initializeScreeningRooms()
+- {static} void initializeShows()
+}
+
+
+class com.cinema.controller.NotificationController {
++ Map<String,Object> getNotices(String)
+}
+
+class com.cinema.storage.MySQLDataStorage {
+- {static} DateTimeFormatter DATE_FMT
+- void initializeDatabase()
++ void saveMovies(Map<String,Movie>)
++ Map<String,Movie> loadMovies()
+- void saveComments(Map<String,Movie>)
+- void loadComments(Map<String,Movie>)
++ void saveScreeningRooms(Map<String,ScreeningRoom>)
++ Map<String,ScreeningRoom> loadScreeningRooms()
++ void saveShows(Map<String,Show>)
++ Map<String,Show> loadShows()
++ void saveUsers(Map<String,User>)
++ Map<String,User> loadUsers()
++ void saveOrders(Map<String,Order>)
++ Map<String,Order> loadOrders()
+- List<Seat> loadOrderSeats(Connection,String,Show)
++ void initializeDefaultData()
++ void close()
+}
+
+
+class com.cinema.config.WebMvcConfig {
+- HttpResponseInterceptor httpResponseInterceptor
++ void addInterceptors(InterceptorRegistry)
+}
+
+
+class com.cinema.TestCompleteSystem {
++ {static} void main(String[])
+}
+
+class com.cinema.controller.LoginRequest {
++ String username
++ String password
+}
+
+class com.cinema.controller.RegisterRequest {
++ String username
++ String password
++ String nickname
++ String phone
++ String email
+}
+
+class com.cinema.controller.AuthController {
++ Map<String,Object> login(LoginRequest)
++ Map<String,Object> register(RegisterRequest)
+}
+
+class com.cinema.exception.SeatNotAvailableException {
+- String seatId
+- String reason
++ String getSeatId()
++ String getReason()
+}
+
+
+class com.cinema.ws.SeatWebSocketServer {
+- {static} ConcurrentHashMap<String,CopyOnWriteArraySet<Session>> showSessions
++ void onOpen(Session,String)
++ void onClose(Session,String)
++ void onError(Session,Throwable)
++ {static} void fireUpdate(String,String)
+}
+
+
+enum com.cinema.model.MovieGenre {
++  ACTION
++  COMEDY
++  DRAMA
++  HORROR
++  ROMANCE
++  SCIENCE_FICTION
++  ANIMATION
++  THRILLER
++  DOCUMENTARY
++  FANTASY
++  MYSTERY
++  ADVENTURE
++  CRIME
++  FAMILY
++  MUSICAL
++  WAR
++  WESTERN
++  BIOGRAPHY
++  SPORT
+- String description
++ String getDescription()
++ {static} MovieGenre fromDescription(String)
++ String toString()
+}
+
+
+class com.cinema.model.Order {
+- {static} long serialVersionUID
+- String orderId
+- Show show
+- List<Seat> seats
+- LocalDateTime createTime
+- LocalDateTime lockTime
+- OrderStatus status
+- double totalAmount
+- User user
++ String getOrderId()
++ void setOrderId(String)
++ Show getShow()
++ void setShow(Show)
++ List<Seat> getSeats()
++ void setSeats(List<Seat>)
++ LocalDateTime getCreateTime()
++ void setCreateTime(LocalDateTime)
++ OrderStatus getStatus()
++ void setStatus(OrderStatus)
++ double getTotalAmount()
++ User getUser()
++ void setUser(User)
++ double calculateTotal()
++ boolean processPayment()
++ boolean cancel()
++ boolean refund()
++ int getSeatCount()
++ String getSeatIds()
++ LocalDateTime getLockTime()
++ void setLockTime(LocalDateTime)
++ boolean isExpired()
++ long getRemainingLockMinutes()
++ String toString()
+}
+
+
+enum com.cinema.model.OrderStatus {
++  PENDING
++  RESERVED
++  PAID
++  CANCELLED
++  REFUNDED
++  EXPIRED
+}
+
+class com.cinema.service.DisplayService {
+- {static} DisplayService instance
++ {static} DisplayService getInstance()
++ void updateSeatDisplay(Show)
++ void updateMovieDisplay(Movie,String)
+}
+
+
+class com.cinema.model.Movie {
+- {static} long serialVersionUID
+- String id
+- String title
+- LocalDate releaseTime
+- List<String> actors
+- String director
+- int duration
+- double rating
+- String description
+- MovieGenre genre
+- String trailerUrl
+- String coverUrl
+- List<Comment> comments
+- Map<LocalDate,List<Show>> showSchedule
++ String getTrailerUrl()
++ void setTrailerUrl(String)
++ String getCoverUrl()
++ void setCoverUrl(String)
++ List<Comment> getComments()
++ void addComment(Comment)
++ String getId()
++ void setId(String)
++ String getTitle()
++ void setTitle(String)
++ LocalDate getReleaseTime()
++ void setReleaseTime(LocalDate)
++ List<String> getActors()
++ void setActors(List<String>)
++ String getDirector()
++ void setDirector(String)
++ int getDuration()
++ void setDuration(int)
++ double getRating()
++ void setRating(double)
++ String getDescription()
++ void setDescription(String)
++ MovieGenre getGenre()
++ void setGenre(MovieGenre)
++ void setGenre(String)
++ void addActor(String)
++ void removeActor(String)
++ List<Show> getShowsByDate(LocalDate)
++ void addShow(LocalDate,Show)
++ void removeShow(LocalDate,Show)
++ Map<LocalDate,List<Show>> getAllShows()
++ String toString()
++ String getDetailedInfo()
+}
+
+
+class com.cinema.ui.NewMethods {
+- CinemaManager cinemaManager
+- BookingService bookingService
+- Scanner scanner
+- User currentUser
++ void editProfile()
++ void manageUsers()
+- void viewAllUsers()
+- void deleteUser()
+- void changeUserRole()
++ void backupData()
++ void logout()
+}
+
+
+class com.cinema.model.AppNotification {
+- String title
+- String content
+- String type
+- String datetime
+- boolean read
++ String getTitle()
++ String getContent()
++ String getType()
++ String getDatetime()
++ boolean isRead()
++ void setRead(boolean)
+}
+
+
+class com.cinema.controller.ScreeningRoomController {
++ Map<String,Object> getAllRooms()
+}
+
+class com.cinema.config.WebSocketConfig {
++ ServerEndpointExporter serverEndpointExporter()
+}
+
+class com.cinema.model.DiscountSeat {
+- {static} long serialVersionUID
++ String toString()
+}
+
+
+class com.cinema.controller.ShowRequest {
++ String movieId
++ String roomId
++ String startTime
++ double price
+}
+
+class com.cinema.controller.ShowController {
++ Map<String,Object> getShows(String)
++ Map<String,Object> getShowSeats(String)
++ Map<String,Object> addShow(ShowRequest)
++ Map<String,Object> deleteShow(String)
+- Map<String,Object> toShowDto(Show,LocalDateTime)
+- Map<String,Object> buildResponse(int,String,Object)
+}
+
+class com.cinema.model.User {
+- {static} long serialVersionUID
+- String id
+- String name
+- String password
+- String phone
+- String email
+- List<Order> orders
+- UserRole role
++ String getId()
++ String getPassword()
++ void setPassword(String)
++ void setId(String)
++ String getName()
++ void setName(String)
++ String getPhone()
++ void setPhone(String)
++ String getEmail()
++ void setEmail(String)
++ UserRole getRole()
++ void setRole(UserRole)
++ List<Order> getOrders()
++ void addOrder(Order)
++ void removeOrder(Order)
++ List<Show> searchShows(String,LocalDateTime)
++ Order createOrder(Show,List<Seat>)
++ boolean isAdmin()
++ boolean isCustomer()
++ String toString()
+}
+
+
+enum com.cinema.model.UserRole {
++  CUSTOMER
++  ADMIN
+}
+
+class com.cinema.service.SimpleTest {
++ {static} void main(String[])
++ {static} void testCinemaManager()
++ {static} void testBookingService()
+}
+
+class com.cinema.service.BookingService {
+- {static} BookingService instance
+- ConcurrentMap<String,Order> orders
+- PricingStrategy pricingStrategy
+- NotificationService notificationService
+- DisplayService displayService
+- MySQLDataStorage mysqlDataStorage
+- boolean useMySQL
++ {static} BookingService getInstance(PricingStrategy)
++ {static} BookingService getInstance()
++ double calculateSeatPrice(Show,Seat)
++ void setPricingStrategy(PricingStrategy)
++ PricingStrategy getPricingStrategy()
+- void ensureShowNotStarted(Show)
++ Order createOrder(User,Show,List<String>)
++ void processPayment(Order)
++ void cancelOrder(Order)
++ Order getOrder(String)
++ List<Order> getAllOrders()
++ List<Order> getOrdersByUser(User)
++ Order reserveOrder(User,Show,List<String>)
++ void processReservedOrderPayment(Order)
++ void checkExpiredOrders()
+- void loadOrders()
++ void saveOrder(Order)
++ void saveOrders()
+- void rebuildUserOrderRelations()
++ void shutdown()
+}
+
+
+class com.cinema.model.ScreeningRoom {
+- {static} long serialVersionUID
+- String id
+- String name
+- String layout
+- Seat[][] seatLayout
+- int totalRows
+- int totalCols
+- void initializeSeats()
++ String getId()
++ void setId(String)
++ String getName()
++ void setName(String)
++ String getLayout()
++ void setLayout(String)
++ Seat[][] getSeatLayout()
++ void setSeatLayout(Seat[][])
++ int getTotalRows()
++ int getTotalCols()
++ List<Seat> getAvailableSeats()
++ Seat getSeat(int,int)
++ int getTotalSeats()
++ int getAvailableSeatsCount()
++ int getVipSeatsCount()
++ int getRegularSeatsCount()
++ int getDiscountSeatsCount()
++ int getRows()
++ int getColumns()
++ String toString()
+}
+
+
+class com.cinema.strategy.PremiumPricing {
++ double calculatePrice(Show,Seat)
+- boolean isWeekend(int)
+}
+
+class com.cinema.ui.ConsoleUI {
+- CinemaManager cinemaManager
+- BookingService bookingService
+- Scanner scanner
+- User currentUser
+- NewMethods newMethods
+- {static} String RESET
+- {static} String RED
+- {static} String GREEN
+- {static} String YELLOW
+- {static} String BLUE
+- {static} String PURPLE
+- {static} String CYAN
+- {static} String WHITE
+- {static} String ORANGE
+- {static} String BOLD
+- {static} String LINE
+- {static} String CORNER_TL
+- {static} String CORNER_TR
+- {static} String CORNER_BL
+- {static} String CORNER_BR
+- {static} String VERTICAL
+- {static} String HORIZONTAL
+- {static} String CROSS
+- String readLine()
+- void clearScreen()
+- void printColored(String,String)
+- void printlnColored(String,String)
+- int getDisplayWidth(String)
+- void printTitle(String)
+- void printSeparator(char,int)
+- void printMenuItem(int,String)
+- void printSuccess(String)
+- void printError(String)
+- void printWarning(String)
+- void printInfo(String)
+- void pressEnterToContinue()
++ void start()
+- void login()
+- boolean performLogin(boolean)
+- void performRegister()
+- void showCustomerMenu()
+- void showAdminMenu()
+- void browseMovies()
+- void searchShows()
+- void purchaseTicket()
+- void displaySeatMap(Show)
+- void viewMyOrders()
+- void refundTicket()
+- void switchPricingStrategy()
+- void manageMovies()
+- void addMovie()
+- void removeMovie()
+- void manageScreeningRooms()
+- void addScreeningRoom()
+- void removeScreeningRoom()
+- void viewScreeningRooms()
+- void manageShows()
+- void addShow()
+- void removeShow()
+- void viewStatistics()
+}
+
+
+abstract class com.cinema.model.Seat {
+- {static} long serialVersionUID
+# int row
+# int col
+# SeatStatus status
+# double basePrice
++ int getRow()
++ void setRow(int)
++ int getCol()
++ void setCol(int)
++ SeatStatus getStatus()
++ void setStatus(SeatStatus)
++ double getBasePrice()
++ void setBasePrice(double)
++ boolean isAvailable()
++ boolean isLocked()
++ void lock()
++ void unlock()
++ void sell()
++ void book()
++ String getSeatId()
++ String toString()
++ boolean equals(Object)
++ int hashCode()
+}
+
+
+enum com.cinema.model.SeatStatus {
++  AVAILABLE
++  LOCKED
++  SOLD
+}
+
+class com.cinema.service.AiService {
+- {static} AiService instance
+- CinemaManager cinemaManager
+- {static} Properties AI_CONFIG
+- boolean useRealAi()
+- String apiKey()
+- String apiUrl()
+- String modelId()
++ {static} AiService getInstance()
++ String getAnswer(String)
+- String buildSystemContext()
+- String callLlmApi(String,String)
+- String mockAiResponse(String,String)
+}
+
+
+class com.cinema.InitializeSystem {
++ {static} void main(String[])
+- {static} void createUsers(CinemaManager)
+- {static} void createMovies(CinemaManager)
+- {static} void createScreeningRooms(CinemaManager)
+- {static} void createShows(CinemaManager)
+}
+
+interface com.cinema.strategy.PricingStrategy {
+~ double calculatePrice(Show,Seat)
+}
+
+class com.cinema.config.DbPasswordResolver {
+- {static} String ENV_KEY
++ {static} String fromEnvironment()
++ {static} String fromCommandLine(String[])
++ {static} String fromProperties(Properties)
+- {static} String trimToNull(String)
+}
+
+
+class com.cinema.exception.PaymentFailedException {
+- String orderId
+- double amount
+- String paymentMethod
++ String getOrderId()
++ double getAmount()
++ String getPaymentMethod()
+}
+
+
+class com.cinema.service.BookingServiceTest {
+- BookingService bookingService
+- CinemaManager cinemaManager
+- User testUser
+- Show testShow
+~ void setUp()
+~ void testCreateOrder()
+~ void testCreateOrderWithInvalidSeat()
+~ void testProcessPayment()
+~ void testCancelPendingOrder()
+~ void testRefundPaidOrder()
+~ void testCalculateSeatPrice()
+~ void testGetOrder()
+~ void testGetAllOrders()
+}
+
+
+class com.cinema.model.Show {
+- {static} long serialVersionUID
+- String id
+- Movie movie
+- ScreeningRoom screeningRoom
+- LocalDateTime startTime
+- double basePrice
+- double discountPrice
+- double vipPrice
+- List<Seat> seats
+- void initializeSeats()
++ String getId()
++ void setId(String)
++ Movie getMovie()
++ void setMovie(Movie)
++ String getMovieTitle()
++ String getMovieId()
++ String getScreeningRoomName()
++ String getScreeningRoomId()
++ ScreeningRoom getScreeningRoom()
++ void setScreeningRoom(ScreeningRoom)
++ LocalDateTime getStartTime()
++ void setStartTime(LocalDateTime)
++ double getBasePrice()
++ void setBasePrice(double)
++ double getDiscountPrice()
++ void setDiscountPrice(double)
++ double getVipPrice()
++ void setVipPrice(double)
+- void updateSeatPrices()
++ List<Seat> getSeats()
++ List<Seat> getAvailableSeats()
++ Seat getSeat(int,int)
++ Seat getSeat(String)
++ boolean hostSell(List<Seat>)
++ int getTotalSeats()
++ int getAvailableSeatsCount()
++ int getSoldSeatsCount()
++ String toString()
+}
+
+
+class com.cinema.controller.BookingRequest {
++ String userId
++ String showId
++ List<String> seatIds
+}
+
+class com.cinema.controller.PayRequest {
++ String orderId
+}
+
+class com.cinema.controller.RefundRequest {
++ String orderId
+}
+
+class com.cinema.controller.BookingController {
++ Map<String,Object> createOrder(BookingRequest)
++ Map<String,Object> payOrder(PayRequest)
++ Map<String,Object> getMyOrders(String)
++ Map<String,Object> refundOrder(RefundRequest)
++ Map<String,Object> getAllOrders()
+}
+
+class com.cinema.CinemaApplication {
++ {static} void main(String[])
+}
+
+class com.cinema.model.Comment {
+- String id
+- String userId
+- String userName
+- String movieId
+- String content
+- double rating
+- LocalDateTime createTime
++ String getId()
++ String getUserId()
++ String getUserName()
++ String getMovieId()
++ String getContent()
++ double getRating()
++ LocalDateTime getCreateTime()
+}
+
+
+
+
+com.cinema.model.Serializable <|.. com.cinema.model.VIPSeat
+com.cinema.model.Seat <|-- com.cinema.model.VIPSeat
+com.cinema.strategy.PricingStrategy <|.. com.cinema.strategy.StandardPricing
+com.cinema.exception.Exception <|-- com.cinema.exception.InvalidBookingException
+org.springframework.web.servlet.config.annotation.WebMvcConfigurer <|.. com.cinema.config.HttpResponseConfig
+com.cinema.model.Serializable <|.. com.cinema.model.RegularSeat
+com.cinema.model.Seat <|-- com.cinema.model.RegularSeat
+org.springframework.web.servlet.HandlerInterceptor <|.. com.cinema.config.HttpResponseInterceptor
+org.springframework.web.servlet.config.annotation.WebMvcConfigurer <|.. com.cinema.config.WebMvcConfig
+com.cinema.exception.Exception <|-- com.cinema.exception.SeatNotAvailableException
+com.cinema.model.Serializable <|.. com.cinema.model.Order
+com.cinema.model.Serializable <|.. com.cinema.model.Movie
+com.cinema.model.Serializable <|.. com.cinema.model.DiscountSeat
+com.cinema.model.Seat <|-- com.cinema.model.DiscountSeat
+com.cinema.model.Serializable <|.. com.cinema.model.User
+com.cinema.model.Serializable <|.. com.cinema.model.ScreeningRoom
+com.cinema.strategy.PricingStrategy <|.. com.cinema.strategy.PremiumPricing
+com.cinema.model.Serializable <|.. com.cinema.model.Seat
+com.cinema.exception.Exception <|-- com.cinema.exception.PaymentFailedException
+com.cinema.model.Serializable <|.. com.cinema.model.Show
+com.cinema.model.Serializable <|.. com.cinema.model.Comment
+@enduml
