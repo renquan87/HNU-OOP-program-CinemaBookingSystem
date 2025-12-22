@@ -36,7 +36,16 @@ const loadMovies = async () => {
   loading.value = true;
   try {
     const res = await getMovieList();
-    movies.value = res.data;
+    if (res && res.success) {
+      movies.value = res.data || [];
+    } else {
+      console.error("获取电影列表失败:", res);
+      movies.value = [];
+    }
+  } catch (error) {
+    console.error("获取电影列表异常:", error);
+    movies.value = [];
+    // 如果是权限错误，会被http拦截器处理并跳转到登录页
   } finally {
     loading.value = false;
   }

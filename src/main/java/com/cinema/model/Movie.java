@@ -1,6 +1,7 @@
 package com.cinema.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +27,7 @@ public class Movie implements java.io.Serializable {
     private String coverUrl; // 🔴 新增：封面地址
     // 🔴 新增：评论列表
     private List<Comment> comments;
+    @JsonIgnore
     private Map<LocalDate, List<Show>> showSchedule;
 
     // 🔴 完整的全参构造函数

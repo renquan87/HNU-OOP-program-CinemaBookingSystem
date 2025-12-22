@@ -31,6 +31,39 @@ class CommentRequest {
     public double rating;
 }
 
+// 电影DTO，避免循环引用
+class MovieDTO {
+    public String id;
+    public String title;
+    public String releaseTime;
+    public List<String> actors;
+    public String director;
+    public int duration;
+    public double rating;
+    public String description;
+    public String genre;
+    public String trailerUrl;
+    public String coverUrl;
+    public List<Comment> comments;
+    public String detailedInfo;
+
+    public MovieDTO(Movie movie) {
+        this.id = movie.getId();
+        this.title = movie.getTitle();
+        this.releaseTime = movie.getReleaseTime().toString();
+        this.actors = movie.getActors();
+        this.director = movie.getDirector();
+        this.duration = movie.getDuration();
+        this.rating = movie.getRating();
+        this.description = movie.getDescription();
+        this.genre = movie.getGenre().getDescription();
+        this.trailerUrl = movie.getTrailerUrl();
+        this.coverUrl = movie.getCoverUrl();
+        this.comments = movie.getComments();
+        this.detailedInfo = movie.getDetailedInfo();
+    }
+}
+
 @RestController
 @RequestMapping("/api/movies")
 public class MovieController {
@@ -40,8 +73,14 @@ public class MovieController {
     public Map<String, Object> getAllMovies() {
         CinemaManager manager = CinemaManager.getInstance();
         List<Movie> movies = manager.getAllMovies();
+        
+        // 转换为DTO避免循环引用
+        List<MovieDTO> movieDTOs = new ArrayList<>();
+        for (Movie movie : movies) {
+            movieDTOs.add(new MovieDTO(movie));
+        }
 
-        return buildResponse(200, "获取成功", movies);
+        return buildResponse(200, "获取成功", movieDTOs);
     }
 
     // 🔴 新增：获取单个电影详情（包含评论）

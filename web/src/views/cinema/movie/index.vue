@@ -30,11 +30,16 @@ const fetchData = async () => {
   try {
     loading.value = true;
     const res = await getMovieList();
-    if (res.success) {
-      tableData.value = res.data;
+    if (res && res.success) {
+      tableData.value = res.data || [];
+    } else {
+      console.error("获取电影列表失败:", res);
+      tableData.value = [];
     }
   } catch (error) {
-    console.error(error);
+    console.error("获取电影列表异常:", error);
+    tableData.value = [];
+    // 如果是权限错误，会被http拦截器处理并跳转到登录页
   } finally {
     loading.value = false;
   }

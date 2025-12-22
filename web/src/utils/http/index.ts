@@ -10,7 +10,7 @@ import type {
   PureHttpRequestConfig
 } from "./types.d";
 import { stringify } from "qs";
-import { getToken, formatToken } from "@/utils/auth";
+import { getToken, formatToken, removeToken } from "@/utils/auth";
 import { useUserStoreHook } from "@/store/modules/user";
 
 // 相关配置请参考：www.axios-js.com/zh-cn/docs/#axios-request-config-1
@@ -85,10 +85,23 @@ class PureHttp {
                     useUserStoreHook()
                       .handRefreshToken({ refreshToken: data.refreshToken })
                       .then(res => {
-                        const token = res.data.accessToken;
-                        config.headers["Authorization"] = formatToken(token);
-                        PureHttp.requests.forEach(cb => cb(token));
-                        PureHttp.requests = [];
+                        if (res && res.data && res.data.accessToken) {
+                          const token = res.data.accessToken;
+                          config.headers["Authorization"] = formatToken(token);
+                          PureHttp.requests.forEach(cb => cb(token));
+                          PureHttp.requests = [];
+                        } else {
+                          // 刷新失败，清除token并跳转到登录页
+                          console.error("Token刷新失败，响应数据异常:", res);
+                          removeToken();
+                          window.location.href = "/login";
+                        }
+                      })
+                      .catch(error => {
+                        console.error("Token刷新失败:", error);
+                        // 刷新失败，清除token并跳转到登录页
+                        removeToken();
+                        window.location.href = "/login";
                       })
                       .finally(() => {
                         PureHttp.isRefreshing = false;
@@ -132,6 +145,23 @@ class PureHttp {
       (error: PureHttpError) => {
         const $error = error;
         $error.isCancelRequest = Axios.isCancel($error);
+        
+        // 处理403权限错误
+        if (error.response && error.response.status === 403) {
+          console.error("403权限错误:", error.response.data);
+          // 清除token并跳转到登录页
+          removeToken();
+          window.location.href = "/login";
+        }
+        
+        // 处理401未授权错误
+        if (error.response && error.response.status === 401) {
+          console.error("401未授权错误:", error.response.data);
+          // 清除token并跳转到登录页
+          removeToken();
+          window.location.href = "/login";
+        }
+        
         // 所有的响应异常 区分来源为取消请求/非取消请求
         return Promise.reject($error);
       }
