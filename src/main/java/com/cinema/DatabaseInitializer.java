@@ -309,36 +309,36 @@ public class DatabaseInitializer {
                 // MOV-001: 阿凡达 - 4场
                 //本场用来测试
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-001', 'MOV-001', 'ROOM-001', '2025-12-01 10:00:00', 45.0, 'SCHEDULED')",
+                "VALUES ('SHOW-001', 'MOV-001', 'ROOM-001', '2025-12-25 10:00:00', 45.0, 'SCHEDULED')",
 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-010', 'MOV-001', 'ROOM-001', '2025-12-20 10:00:00', 45.0, 'SCHEDULED')",
+                "VALUES ('SHOW-010', 'MOV-001', 'ROOM-001', '2025-12-26 10:00:00', 45.0, 'SCHEDULED')",
                 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-002', 'MOV-001', 'ROOM-002', '2025-12-20 14:00:00', 50.0, 'SCHEDULED')",
+                "VALUES ('SHOW-002', 'MOV-001', 'ROOM-002', '2025-12-26 14:00:00', 50.0, 'SCHEDULED')",
                 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-003', 'MOV-001', 'ROOM-003', '2025-12-20 19:00:00', 55.0, 'SCHEDULED')",
+                "VALUES ('SHOW-003', 'MOV-001', 'ROOM-003', '2025-12-26 19:00:00', 55.0, 'SCHEDULED')",
                 
                 // MOV-002: 流浪地球2 - 3场
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-004', 'MOV-002', 'ROOM-001', '2025-12-21 10:00:00', 48.0, 'SCHEDULED')",
+                "VALUES ('SHOW-004', 'MOV-002', 'ROOM-001', '2025-12-27 10:00:00', 48.0, 'SCHEDULED')",
                 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-005', 'MOV-002', 'ROOM-002', '2025-12-21 14:00:00', 52.0, 'SCHEDULED')",
+                "VALUES ('SHOW-005', 'MOV-002', 'ROOM-002', '2025-12-27 14:00:00', 52.0, 'SCHEDULED')",
                 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-006', 'MOV-002', 'ROOM-003', '2025-12-21 19:00:00', 58.0, 'SCHEDULED')",
+                "VALUES ('SHOW-006', 'MOV-002', 'ROOM-003', '2025-12-27 19:00:00', 58.0, 'SCHEDULED')",
                 
                 // MOV-003: 满江红 - 3场
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-007', 'MOV-003', 'ROOM-001', '2025-12-22 10:00:00', 46.0, 'SCHEDULED')",
+                "VALUES ('SHOW-007', 'MOV-003', 'ROOM-001', '2025-12-28 10:00:00', 46.0, 'SCHEDULED')",
                 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-008', 'MOV-003', 'ROOM-002', '2025-12-22 14:00:00', 51.0, 'SCHEDULED')",
+                "VALUES ('SHOW-008', 'MOV-003', 'ROOM-002', '2025-12-28 14:00:00', 51.0, 'SCHEDULED')",
                 
                 "INSERT IGNORE INTO shows (id, movie_id, room_id, start_time, base_price, status) " +
-                "VALUES ('SHOW-009', 'MOV-003', 'ROOM-003', '2025-12-22 19:00:00', 56.0, 'SCHEDULED')"
+                "VALUES ('SHOW-009', 'MOV-003', 'ROOM-003', '2025-12-28 19:00:00', 56.0, 'SCHEDULED')"
             };
             
             for (String sql : insertSqls) {
