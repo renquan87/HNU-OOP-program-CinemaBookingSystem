@@ -157,7 +157,7 @@ pnpm run dev
 
 IDEA可能有终端中文乱码问题，可搜教程解决。
 
-用MySQL Workbench或者Command Line可查看数据库存储情况。（具体查看[MySQLWorkbench.md](docs/MySQLDataViewingAndManagementGuide.md)）
+用MySQL Workbench或者Command Line可查看数据库存储情况。（具体查看[docs/MySQLDataViewingAndManagementGuide.md](docs/MySQLDataViewingAndManagementGuide.md)）
 
 ## 开发指南
 
